@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:oddlycraft.com)",
+      "Bash(npm run *)",
+      "WebFetch(domain:www.instagram.com)",
+      "WebFetch(domain:images.squarespace-cdn.com)",
+      "WebFetch(domain:docs.arcjet.com)",
+      "Bash(sed -n '100,130p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
+      "Bash(sed -n '212,320p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
+      "Bash(sed -n '860,880p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
+      "Bash(git add *)"
+    ]
+  }
+}
