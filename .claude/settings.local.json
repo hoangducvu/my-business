@@ -9,7 +9,15 @@
       "Bash(sed -n '100,130p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
       "Bash(sed -n '212,320p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
       "Bash(sed -n '860,880p' /c/Users/MSl/my-business/node_modules/arcjet/index.d.ts)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(curl *)",
+      "Bash(git checkout *)",
+      "Bash(node -e \"const fs=require\\('fs'\\);const raw=fs.readFileSync\\('.env.local','utf8'\\);const match=raw.match\\(/GOOGLE_SERVICE_ACCOUNT_JSON=\\(.*\\)/\\);console.log\\(match[1]\\)\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Nunito, Baloo_2 } from "next/font/google";
 import "./globals.css";
+import Providers from "./Providers";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -8,10 +9,16 @@ const nunito = Nunito({
   weight: ["400", "600", "700", "800", "900"],
 });
 
+const baloo = Baloo_2({
+  variable: "--font-baloo",
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
+
 export const metadata: Metadata = {
-  title: "Oddly Craft Malta — Trendy Phone Cases & Unique Bracelets",
+  title: "OddlyCraft Malta — Custom Phone Cases, Charms & More",
   description:
-    "Experience a crafty space like no other in St. Julian's, Malta. Design your own phone case or Italian charm bracelet — no artistic skills needed!",
+    "Walk-in craft workshop in Malta. Customise your own phone case, Italian charm bracelet, pencil case, locket heart, or night lamp. No skills needed — just bring your vibe!",
 };
 
 export default function RootLayout({
@@ -20,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${nunito.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${nunito.variable} ${baloo.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
     </html>
   );
 }

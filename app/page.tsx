@@ -2,17 +2,18 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import BookingSection from './BookingSection'
 import NewsletterForm from './NewsletterForm'
+import OddlyCraftLogo from './OddlyCraftLogo'
+import NavAuthButton from './NavAuthButton'
 
 export const metadata: Metadata = {
-  title: 'Oddly Craft Malta — Trendy Phone Cases & Unique Bracelets',
+  title: 'OddlyCraft Malta — Customise Your Own Charms, Cases & More',
   description:
-    "Experience a crafty space like no other. Design your own phone case or Italian charm bracelet at Mercury Tower, St. Julian's — no artistic skills needed!",
+    'Walk-in craft workshop in Malta. Make your own phone case, Italian charm bracelet, pencil case, locket heart or night lamp — no skills needed!',
 }
 
 const CDN = 'https://images.squarespace-cdn.com/content/v1/66b355473e77ee151ad26afd'
 
 const images = {
-  logo:     `${CDN}/9506482f-2d23-49af-890f-fc918122df1a/Group+104.png?format=1500w`,
   hero:     `${CDN}/490a20a6-3e52-4f22-b6c6-7ecc1de2bee6/First+Image+%28HP%29.png`,
   caseHold: `${CDN}/c2c3c3fd-24d5-4e4d-b6f4-20b0f1c4b910/IMG_3213.jpg`,
   caseOut:  `${CDN}/855f872f-a835-4359-923c-7d5fad7e2aa0/IMG_9974.JPG`,
@@ -20,219 +21,332 @@ const images = {
   bracelet: `${CDN}/a7d94c2b-ccf7-4985-8f1c-b47d20402560/Product+4+%28P%29.png`,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ✦ WORKSHOPS
-// To add a new workshop card: copy one object and paste below the last one.
-// ─────────────────────────────────────────────────────────────────────────────
-const workshops = [
+const products = [
   {
     id: 'phonecase',
-    photo: images.caseOut,
-    photoAlt: 'Girl holding a custom seashell phone case',
-    title: 'craft your own phone case',
-    description:
-      "no prior experience needed—just bring your personality, and we'll guide you every step of the way",
+    emoji: '📱',
+    name: 'Phone Case',
+    description: 'Design with shells, gems & photos — every model supported',
     price: '€28',
-    tag: 'Most Popular',
-    cta: 'Book your ticket',
-    href: '#book',
+    tag: '✦ Most Popular',
+    tagBg: '#7B1A38',
+    cardBg: '#FDE8EF',
+    borderColor: '#E8829A',
+    priceColor: '#7B1A38',
   },
   {
-    id: 'bracelet',
-    photo: images.bracelet,
-    photoAlt: 'Italian charm bracelets on wrist',
-    title: 'build your own bracelet',
-    description:
-      'with over 500 charms to choose from, that showcase your personality, celebrate your milestones, or simply reflect your style',
+    id: 'charms',
+    emoji: '🔗',
+    name: 'Italian Charms',
+    description: 'Pick from 500+ unique charms, celebrate your story',
     price: 'from €15',
     tag: '500+ charms',
-    cta: 'Shop online',
-    href: '#book',
+    tagBg: '#2A7B5C',
+    cardBg: '#E8F9F2',
+    borderColor: '#4BAD87',
+    priceColor: '#2A7B5C',
   },
-  // ✦ TO ADD A NEW WORKSHOP — copy the block below, uncomment, and fill in:
-  // {
-  //   id: 'keychain',
-  //   photo: images.process,        // swap for a different image if you have one
-  //   photoAlt: 'Custom keychain',
-  //   title: 'design your own keychain',
-  //   description: 'pick your shape, print your photo — walk away with something uniquely yours',
-  //   price: '€18',
-  //   tag: 'New!',
-  //   cta: 'Book your ticket',
-  //   href: '#book',
-  // },
+  {
+    id: 'pencilcase',
+    emoji: '✏️',
+    name: 'Pencil Case',
+    description: 'Personalise a pencil case that is totally yours',
+    price: 'Walk in',
+    tag: '✨ New!',
+    tagBg: '#B07B10',
+    cardBg: '#FEF6DF',
+    borderColor: '#E6B830',
+    priceColor: '#B07B10',
+  },
+  {
+    id: 'locket',
+    emoji: '💝',
+    name: 'Locket Heart',
+    description: 'Keep someone close — a locket that tells your story',
+    price: 'Walk in',
+    tag: 'So cute ♡',
+    tagBg: '#7B2A9B',
+    cardBg: '#F5E8FD',
+    borderColor: '#C47AE0',
+    priceColor: '#7B2A9B',
+  },
+  {
+    id: 'nightlamp',
+    emoji: '🌙',
+    name: 'Night Lamp',
+    description: 'Create a custom night lamp with your own design',
+    price: 'Walk in',
+    tag: 'Fan fave',
+    tagBg: '#1A5C7B',
+    cardBg: '#E8F4FD',
+    borderColor: '#5AADD4',
+    priceColor: '#1A5C7B',
+  },
 ]
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ✦ USE CASES
-// To add more: copy one object and paste below the last one.
-// ─────────────────────────────────────────────────────────────────────────────
+const locations = [
+  {
+    id: 'plaza',
+    name: 'The Plaza Sliema',
+    level: 'Level 2',
+    icon: '✨',
+    hours: 'Mon – Sun  ·  10am – 7pm',
+    badge: 'Open every day!',
+    badgeBg: '#7B1A38',
+    bg: '#FDE8EF',
+  },
+  {
+    id: 'mercury',
+    name: 'Mercury Tower',
+    level: 'Level B1',
+    icon: '‼️',
+    hours: 'Fri 4pm–8pm  ·  Sat & Sun 11am–8pm',
+    badge: 'Weekend only',
+    badgeBg: '#C94870',
+    bg: '#FADADD',
+  },
+]
+
 const useCases = [
-  {
-    id: 'yourself',
-    emoji: '🌟',
-    title: 'For Yourself',
-    description: 'Ditch boring cookie-cutter cases! Your outfits deserve better matches.',
-  },
-  {
-    id: 'duo',
-    emoji: '💑',
-    title: 'For Just The Two Of Us',
-    description:
-      "No love stories the same, why phone cases? Don't just make memories, turn them into daily reminders.",
-  },
-  {
-    id: 'besties',
-    emoji: '🫂',
-    title: 'For Your Gossip Besties',
-    description: 'Make memories that stick with matching phone cases for your besties.',
-  },
-  {
-    id: 'gang',
-    emoji: '🎉',
-    title: 'For Your Ride-or-die Gang',
-    description: "Unite your group's vibe with one-of-a-kind matching phone cases.",
-  },
-  {
-    id: 'family',
-    emoji: '👨‍👩‍👧‍👦',
-    title: 'For Your One-and-only Family',
-    description: 'Too busy for family? Ever dreamed of "My kids made me this phone case" moment?',
-  },
-  {
-    id: 'friendship',
-    emoji: '📿',
-    title: 'Friendship Bracelets',
-    description: 'Mix and Match Unique Friendship Bracelets.',
-  },
-  // ✦ TO ADD A NEW USE CASE — copy the block below, uncomment, and fill in:
-  // {
-  //   id: 'corporate',
-  //   emoji: '💼',
-  //   title: 'For Your Work Team',
-  //   description: "Forget boring team-building — create something everyone actually keeps.",
-  // },
+  { emoji: '🌟', title: 'For Yourself',    desc: 'Ditch boring cookie-cutter cases — your outfits deserve better.',  bg: '#FDE8EF', border: '#E8829A' },
+  { emoji: '💑', title: 'For You Two',     desc: "No two love stories are the same — why should your cases be?",    bg: '#FEF6DF', border: '#E6B830' },
+  { emoji: '🫂', title: 'For Your Besties',desc: 'Make memories that stick with matching pieces for your crew.',     bg: '#E8F9F2', border: '#4BAD87' },
+  { emoji: '🎉', title: 'For Your Gang',   desc: "Unite your group's vibe with one-of-a-kind matching creations.",  bg: '#F5E8FD', border: '#C47AE0' },
+  { emoji: '👨‍👩‍👧‍👦', title: 'For Family', desc: '"My kids made me this" — the best kind of gift.',              bg: '#E8F4FD', border: '#5AADD4' },
+  { emoji: '🎁', title: 'As a Gift',       desc: 'Genuinely thoughtful. Genuinely unique. Walk out with it done.',  bg: '#FDE8EF', border: '#E8829A' },
 ]
 
-const marqueeItems = ['dream it ♡', 'make it ♡', 'wear it ♡', 'gift it ♡', 'love it ♡', 'own it ♡', 'feel it ♡', 'share it ♡']
+const marqueeItems = [
+  'make it yours ✦', 'wear it daily ✦', 'gift with love ✦',
+  'no skills needed ✦', 'all customisable ✦', 'walk in anytime ✦',
+  'malta made ✦', 'dream it ✦',
+]
 
 export default function HomePage() {
   const doubled = [...marqueeItems, ...marqueeItems]
 
   return (
-    <main className="min-h-screen bg-white" style={{ fontFamily: 'var(--font-nunito), sans-serif' }}>
+    <main className="min-h-screen" style={{ background: 'var(--background)', fontFamily: 'var(--font-nunito), sans-serif' }}>
 
       {/* ── NAV ── */}
-      <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <nav className="sticky top-0 z-50 border-b-2" style={{ background: '#F9C5D0', borderColor: '#E8829A' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-
-          {/* Real logo */}
           <a href="/" className="flex-none">
             <Image
-              src={images.logo}
-              alt="Oddly Craft"
-              width={140}
-              height={32}
-              className="h-8 w-auto object-contain"
+              src="/logo-transparent.png"
+              alt="OddlyCraft"
+              width={773}
+              height={164}
+              className="h-10 w-auto object-contain"
               priority
             />
           </a>
 
-          {/* Desktop nav links */}
-          <div className="hidden md:flex items-center gap-6 text-sm font-bold text-gray-600">
-            <a href="#workshops" className="hover:text-[var(--pink)] transition">Italian Charms</a>
-            <a href="#book" className="hover:text-[var(--pink)] transition">Workshop Tickets</a>
-            <a href="#newsletter" className="hover:text-[var(--pink)] transition">Gift Card</a>
-            <a href="#faqs" className="hover:text-[var(--pink)] transition">FAQs</a>
+          <div className="hidden md:flex items-center gap-6 text-sm font-bold" style={{ color: '#7B1A38' }}>
+            <a href="#workshops" className="hover:opacity-70 transition">What We Make</a>
+            <a href="#locations" className="hover:opacity-70 transition">Find Us</a>
+            <a href="#book" className="hover:opacity-70 transition">Walk-in</a>
+            <a href="#faqs" className="hover:opacity-70 transition">FAQs</a>
             <a
               href="https://instagram.com/oddlycraft"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram"
-              className="hover:text-[var(--pink)] transition"
+              className="inline-flex items-center gap-1.5 hover:opacity-70 transition"
+              style={{ color: '#7B1A38' }}
             >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
               </svg>
+              @oddlycraft
             </a>
           </div>
 
-          <a
-            href="#book"
-            className="inline-flex items-center px-5 py-2.5 bg-[var(--pink)] hover:bg-[var(--pink-dark)] text-white font-black text-sm rounded-full transition shadow-md"
-          >
-            Book Now
-          </a>
+          <div className="flex items-center gap-3">
+            <NavAuthButton />
+            <a
+              href="#book"
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                padding: '10px 20px', borderRadius: '9999px',
+                background: '#7B1A38', color: 'white',
+                fontWeight: 900, fontSize: '14px',
+                textDecoration: 'none', whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(123,26,56,0.35)',
+              }}
+            >
+              Walk In Today
+            </a>
+          </div>
         </div>
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[var(--pink-light)] via-white to-[#f8fbff] py-16 sm:py-24 px-4">
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+      <section className="relative overflow-hidden dots-bg py-16 sm:py-24 px-4" style={{ background: 'var(--blush)' }}>
 
-          {/* Left: text */}
+        {/* Floating stickers */}
+        <div className="absolute top-12 left-6  text-4xl animate-float     pointer-events-none select-none" style={{animationDelay:'0s'}}>✨</div>
+        <div className="absolute top-8  right-10 text-3xl animate-float-r  pointer-events-none select-none" style={{animationDelay:'1.2s'}}>💝</div>
+        <div className="absolute bottom-20 left-12 text-3xl animate-float-slow pointer-events-none select-none" style={{animationDelay:'0.6s'}}>🌸</div>
+        <div className="absolute top-28 left-[38%] text-2xl animate-float pointer-events-none select-none hidden sm:block" style={{animationDelay:'2s'}}>⭐</div>
+        <div className="absolute bottom-16 right-16 text-3xl animate-float-r pointer-events-none select-none" style={{animationDelay:'1.8s'}}>🎀</div>
+        <div className="absolute top-16 right-1/3 text-2xl animate-float-slow pointer-events-none select-none hidden lg:block" style={{animationDelay:'0.3s'}}>🌙</div>
+
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 items-center relative z-10">
+
+          {/* Left: copy */}
           <div>
-            <p className="text-sm font-bold text-[var(--pink)] uppercase tracking-widest mb-4">
-              experience a crafty space like no other
-            </p>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-[#111827] mb-4">
-              trendy phone cases<br />
-              <span className="text-[var(--pink)]">&amp; unique bracelets</span> ♡
-            </h1>
-            <p className="text-base text-gray-400 mb-2">
-              (no artistic skills needed. Oddly team got you covered)
-            </p>
-            <p className="text-sm text-gray-400 mb-8 flex items-center gap-1.5">
-              <span>📍</span> Mercury Tower B1, St. Julian's, Malta
+            {/* Logo mark */}
+            <div className="mb-6">
+              <Image
+                src="/logo-transparent.png"
+                alt="OddlyCraft"
+                width={773}
+                height={164}
+                className="h-28 w-auto object-contain"
+                priority
+              />
+            </div>
+
+            <p className="text-sm font-black uppercase tracking-widest mb-3" style={{ color: 'var(--maroon-mid)' }}>
+              walk-in craft workshop · malta
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <h1
+              className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.1] mb-5"
+              style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+            >
+              make it.<br />
+              <span style={{ color: 'var(--maroon-mid)' }}>wear it.</span><br />
+              gift it ♡
+            </h1>
+
+            <p className="text-base font-semibold mb-6 max-w-sm" style={{ color: 'var(--maroon-mid)' }}>
+              Five totally customisable creations — no artistic skills needed, just bring your vibe and we'll guide you every step of the way.
+            </p>
+
+            {/* Product pills */}
+            <div className="flex flex-wrap gap-2 mb-8">
+              {['📱 Phone Case', '🔗 Italian Charms', '✏️ Pencil Case', '💝 Locket Heart', '🌙 Night Lamp'].map((p) => (
+                <span
+                  key={p}
+                  className="px-3 py-1.5 rounded-full text-sm font-black border-2"
+                  style={{ borderColor: 'var(--maroon)', color: 'var(--maroon)', background: 'var(--cream)' }}
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <a
-                href="#book"
-                className="inline-flex justify-center items-center px-8 py-4 bg-[var(--yellow)] hover:bg-[var(--yellow-dark)] text-[#111827] font-black text-lg rounded-2xl shadow-lg transition-all"
+                href="#locations"
+                className="inline-flex justify-center items-center px-8 py-4 font-black text-lg rounded-2xl shadow-lg transition-all text-white"
+                style={{ background: 'var(--maroon)' }}
               >
-                Book your ticket →
+                Find Us →
               </a>
               <a
-                href="#workshops"
-                className="inline-flex justify-center items-center px-8 py-4 bg-white text-gray-700 font-bold text-lg rounded-2xl border-2 border-gray-200 hover:border-[var(--pink-mid)] shadow-sm transition"
+                href="https://instagram.com/oddlycraft"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex justify-center items-center gap-2 px-8 py-4 font-black text-lg rounded-2xl border-2 transition-all"
+                style={{ borderColor: 'var(--maroon)', color: 'var(--maroon)', background: 'var(--cream)' }}
               >
-                Explore workshops
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+                @oddlycraft
               </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-5 text-sm text-gray-500">
-              <span>⭐⭐⭐⭐⭐ <strong className="text-gray-700">200+ happy crafters</strong></span>
-              <span>🎨 <strong className="text-gray-700">Daily 11:00–20:00</strong></span>
-              <span>🎁 <strong className="text-gray-700">Perfect gift</strong></span>
+            <div className="flex flex-wrap gap-4 text-sm font-bold" style={{ color: 'var(--maroon-mid)' }}>
+              <span>⭐⭐⭐⭐⭐ 200+ happy crafters</span>
+              <span>🎨 No booking needed</span>
+              <span>🎁 Perfect gift idea</span>
             </div>
           </div>
 
-          {/* Right: hero image */}
-          <div className="relative h-80 sm:h-96 lg:h-[480px] rounded-3xl overflow-hidden shadow-2xl">
-            <Image
-              src={images.hero}
-              alt="Oddly Craft workshop — custom phone cases and bracelets"
-              fill
-              className="object-cover object-center"
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
+          {/* Right: product sticker collage */}
+          <div className="relative h-[420px] sm:h-[480px] hidden sm:block">
+            {/* Background blob */}
+            <div
+              className="absolute inset-0 rounded-full opacity-40 animate-spin-slow"
+              style={{
+                background: 'radial-gradient(circle at 40% 40%, var(--rose) 0%, transparent 70%)',
+                transform: 'scale(1.1)',
+              }}
             />
+
+            {/* Hero photo */}
+            <div className="absolute inset-8 rounded-3xl overflow-hidden shadow-2xl" style={{ border: '3px solid var(--rose)' }}>
+              <Image
+                src={images.hero}
+                alt="OddlyCraft workshop"
+                fill
+                className="object-cover object-center"
+                priority
+                sizes="50vw"
+              />
+            </div>
+
+            {/* Sticker cards — scattered and rotated */}
+            <div
+              className="absolute -top-4 -left-6 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float"
+              style={{ border: '2px dashed var(--maroon)', transform: 'rotate(-8deg)', animationDelay: '0s' }}
+            >
+              <div className="text-3xl mb-1">📱</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Phone Case</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--maroon-mid)' }}>€28</div>
+            </div>
+
+            <div
+              className="absolute -top-2 -right-4 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float-r"
+              style={{ border: '2px dashed var(--maroon)', transform: 'rotate(7deg)', animationDelay: '0.8s' }}
+            >
+              <div className="text-3xl mb-1">🔗</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Charms</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--maroon-mid)' }}>from €15</div>
+            </div>
+
+            <div
+              className="absolute bottom-0 -left-8 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float-slow"
+              style={{ border: '2px dashed var(--maroon)', transform: 'rotate(-5deg)', animationDelay: '1.5s' }}
+            >
+              <div className="text-3xl mb-1">✏️</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Pencil Case</div>
+            </div>
+
+            <div
+              className="absolute bottom-4 -right-6 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float"
+              style={{ border: '2px dashed var(--maroon)', transform: 'rotate(6deg)', animationDelay: '2.2s' }}
+            >
+              <div className="text-3xl mb-1">🌙</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Night Lamp</div>
+            </div>
+
+            <div
+              className="absolute top-1/2 -right-6 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float-r"
+              style={{ border: '2px dashed var(--maroon)', transform: 'rotate(4deg)', animationDelay: '0.4s' }}
+            >
+              <div className="text-3xl mb-1">💝</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Locket Heart</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── MARQUEE ── */}
       <div
-        className="overflow-hidden py-4 border-y border-[var(--pink-mid)]"
-        style={{ background: 'var(--pink)' }}
+        className="overflow-hidden py-4 border-y-2"
+        style={{ background: 'var(--maroon)', borderColor: 'var(--maroon-dark)' }}
         aria-hidden
       >
         <div className="animate-marquee">
           {doubled.map((text, i) => (
             <span
               key={i}
-              className="inline-block px-8 text-white font-black text-lg uppercase tracking-widest whitespace-nowrap"
+              className="inline-block px-10 font-black text-base uppercase tracking-widest whitespace-nowrap"
+              style={{ color: 'var(--rose)', fontFamily: 'var(--font-baloo), sans-serif' }}
             >
               {text}
             </span>
@@ -240,72 +354,80 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── WORKSHOPS ── */}
-      <section id="workshops" className="py-20 px-4 bg-white">
-        <div className="max-w-5xl mx-auto">
+      {/* ── PRODUCTS ── */}
+      <section id="workshops" className="py-20 px-4" style={{ background: 'var(--cream)' }}>
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-black text-[#111827] mb-3">
-              two ways to express yourself
+            <span
+              className="inline-block px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4 text-white"
+              style={{ background: 'var(--maroon)' }}
+            >
+              all customisable ✦
+            </span>
+            <h2
+              className="text-4xl sm:text-5xl font-black mb-3"
+              style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+            >
+              what will you make?
             </h2>
-            <p className="text-gray-400 max-w-md mx-auto">
-              Pick one — or do both for the ultimate creative day out ♡
+            <p className="max-w-md mx-auto font-semibold" style={{ color: 'var(--maroon-mid)' }}>
+              Five unique workshops — pick one, try them all. Every single one is completely yours to design ♡
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-8">
-            {workshops.map((w) => (
-              <div
-                key={w.id}
-                className="card-hover relative rounded-3xl border-2 border-gray-100 bg-[var(--soft-gray)] overflow-hidden"
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5">
+            {products.map((p) => (
+              <a
+                key={p.id}
+                href="#book"
+                className="card-hover group block rounded-3xl p-6 text-center transition-all"
+                style={{
+                  background: p.cardBg,
+                  border: `3px solid ${p.borderColor}`,
+                }}
               >
-                {/* Photo */}
-                <div className="relative h-56 w-full overflow-hidden">
-                  <Image
-                    src={w.photo}
-                    alt={w.photoAlt}
-                    fill
-                    className="object-cover object-center"
-                    sizes="(max-width: 640px) 100vw, 50vw"
-                  />
-                  {/* Tag badge */}
-                  <span className="absolute top-4 right-4 px-3 py-1 bg-[var(--pink)] text-white text-xs font-black rounded-full shadow">
-                    {w.tag}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  <h3 className="text-xl font-black text-[#111827] mb-2">{w.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed mb-5">{w.description}</p>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-3xl font-black text-[var(--pink)]">{w.price}</span>
-                    <a
-                      href={w.href}
-                      className="px-6 py-3 bg-[var(--yellow)] hover:bg-[var(--yellow-dark)] text-[#111827] font-black rounded-xl transition shadow-sm text-sm"
-                    >
-                      {w.cta}
-                    </a>
-                  </div>
-                </div>
-              </div>
+                <div className="text-5xl mb-3">{p.emoji}</div>
+                <span
+                  className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black text-white mb-2"
+                  style={{ background: p.tagBg }}
+                >
+                  {p.tag}
+                </span>
+                <h3
+                  className="font-black text-base mb-1 leading-tight"
+                  style={{ fontFamily: 'var(--font-baloo), sans-serif', color: p.priceColor }}
+                >
+                  {p.name}
+                </h3>
+                <p className="text-xs leading-relaxed mb-3" style={{ color: p.priceColor, opacity: 0.75 }}>
+                  {p.description}
+                </p>
+                <span className="text-lg font-black" style={{ color: p.priceColor }}>
+                  {p.price}
+                </span>
+              </a>
             ))}
           </div>
         </div>
       </section>
 
       {/* ── PHOTO GALLERY ── */}
-      <section className="py-16 px-4 bg-[var(--pink-light)]">
+      <section className="py-16 px-4" style={{ background: 'var(--blush)' }}>
         <div className="max-w-5xl mx-auto">
-          <p className="text-center text-sm font-bold text-[var(--pink)] uppercase tracking-widest mb-8">
+          <p className="text-center text-sm font-black uppercase tracking-widest mb-8" style={{ color: 'var(--maroon)' }}>
             from our workshop ♡
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
-              { src: images.caseHold, alt: 'Custom seashell phone case — dark theme' },
-              { src: images.process,  alt: 'Crafting a phone case with shells and gems' },
-              { src: images.caseOut,  alt: 'Outdoor lifestyle with custom phone case' },
+              { src: images.caseHold, alt: 'Custom seashell phone case' },
+              { src: images.process,  alt: 'Crafting a phone case with gems' },
+              { src: images.caseOut,  alt: 'Lifestyle with custom phone case' },
             ].map((img) => (
-              <div key={img.src} className="relative aspect-square rounded-2xl overflow-hidden shadow-md">
+              <div
+                key={img.src}
+                className="relative aspect-square rounded-3xl overflow-hidden shadow-lg"
+                style={{ border: '2px solid var(--rose)' }}
+              >
                 <Image
                   src={img.src}
                   alt={img.alt}
@@ -321,40 +443,120 @@ export default function HomePage() {
               href="https://instagram.com/oddlycraft"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-[var(--pink)] font-black text-sm hover:underline"
+              className="inline-flex items-center gap-2 font-black text-sm hover:opacity-70 transition"
+              style={{ color: 'var(--maroon)' }}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
               </svg>
-              See more on @oddlycraft
+              See more on @oddlycraft ↗
             </a>
           </div>
         </div>
       </section>
 
-      {/* ── BOOKING (client component) ── */}
+      {/* ── LOCATIONS ── */}
+      <section id="locations" className="py-20 px-4" style={{ background: 'var(--cream)' }}>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-14">
+            <h2
+              className="text-4xl sm:text-5xl font-black mb-3"
+              style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+            >
+              walk in & create ♡
+            </h2>
+            <p className="font-semibold" style={{ color: 'var(--maroon-mid)' }}>
+              No booking needed — just show up and start making
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-6">
+            {locations.map((loc) => (
+              <div
+                key={loc.id}
+                className="card-hover rounded-3xl p-8 relative overflow-hidden"
+                style={{ background: loc.bg, border: '2px solid var(--rose)' }}
+              >
+                <span
+                  className="inline-block px-3 py-1 rounded-full text-xs font-black text-white mb-4"
+                  style={{ background: loc.badgeBg }}
+                >
+                  {loc.icon} {loc.badge}
+                </span>
+                <h3
+                  className="text-2xl font-black mb-1"
+                  style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+                >
+                  {loc.name}
+                </h3>
+                <p className="font-bold text-sm mb-4" style={{ color: 'var(--maroon-mid)' }}>
+                  {loc.level}
+                </p>
+                <div
+                  className="flex items-start gap-3 rounded-2xl px-4 py-3"
+                  style={{ background: 'rgba(255,255,255,0.7)' }}
+                >
+                  <span className="text-xl mt-0.5">🕐</span>
+                  <span className="font-black text-sm leading-relaxed" style={{ color: 'var(--maroon)' }}>
+                    {loc.hours}
+                  </span>
+                </div>
+                {/* Decorative large emoji */}
+                <div
+                  className="absolute -bottom-4 -right-4 text-8xl opacity-10 pointer-events-none select-none"
+                  aria-hidden
+                >
+                  📍
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-center mt-6 text-sm font-bold" style={{ color: 'var(--maroon-mid)' }}>
+            Can't make it? DM us on{' '}
+            <a
+              href="https://instagram.com/oddlycraft"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+              style={{ color: 'var(--maroon)' }}
+            >
+              @oddlycraft
+            </a>
+            {' '}and we'll sort something out ♡
+          </p>
+        </div>
+      </section>
+
+      {/* ── BOOKING ── */}
       <BookingSection />
 
       {/* ── USE CASES ── */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
+      <section className="py-20 px-4" style={{ background: 'var(--cream)' }}>
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl sm:text-4xl font-black text-[#111827] mb-3">
+            <h2
+              className="text-4xl sm:text-5xl font-black mb-3"
+              style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+            >
               who is this for?
             </h2>
-            <p className="text-gray-400 max-w-sm mx-auto">
+            <p className="font-semibold" style={{ color: 'var(--maroon-mid)' }}>
               Honestly… everyone. But here are a few of our favourites ♡
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {useCases.map((u) => (
               <div
-                key={u.id}
-                className="card-hover rounded-2xl border-2 border-gray-100 p-5 text-center bg-[var(--soft-gray)]"
+                key={u.title}
+                className="card-hover rounded-2xl p-5 text-center"
+                style={{ background: u.bg, border: `2px solid ${u.border}` }}
               >
                 <div className="text-4xl mb-3">{u.emoji}</div>
-                <h3 className="font-black text-sm text-[#111827] mb-2 leading-snug">{u.title}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">{u.description}</p>
+                <h3 className="font-black text-sm mb-2 leading-snug" style={{ color: 'var(--maroon)' }}>
+                  {u.title}
+                </h3>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--maroon-mid)' }}>{u.desc}</p>
               </div>
             ))}
           </div>
@@ -362,43 +564,66 @@ export default function HomePage() {
       </section>
 
       {/* ── FAQs ── */}
-      <section id="faqs" className="py-20 px-4 bg-[var(--pink-light)]">
+      <section id="faqs" className="py-20 px-4" style={{ background: 'var(--blush)' }}>
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-black text-[#111827] mb-3">got questions? ♡</h2>
+            <h2
+              className="text-4xl sm:text-5xl font-black mb-3"
+              style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
+            >
+              got questions? ♡
+            </h2>
           </div>
           <div className="space-y-4">
             {[
+              {
+                q: 'Do I need to book in advance?',
+                a: 'Nope! We\'re a walk-in workshop — just show up during opening hours. For large groups (6+) we recommend reaching out first so we can make sure we have space.',
+              },
               {
                 q: 'Do I need any artistic skills?',
                 a: 'None at all! Our team guides you every step of the way. Just bring your personality.',
               },
               {
                 q: 'How long does a session take?',
-                a: 'Phone case sessions take about 45–60 minutes. Bracelet building can be as quick as 30 minutes depending on how many charms you pick!',
-              },
-              {
-                q: 'Can I bring my own photos?',
-                a: "Yes! For phone cases you can bring photos on your phone and we'll print them for you.",
-              },
-              {
-                q: 'Do you cater for groups & hen parties?',
-                a: "Absolutely — group bookings are our favourite! Contact us for private session packages for groups of 6+.",
+                a: 'Phone cases take about 45–60 minutes. Charm bracelets can be as quick as 30 minutes depending on how many charms you pick. Other products vary — ask us when you arrive!',
               },
               {
                 q: 'Where exactly are you located?',
-                a: "Level B1, Mercury Tower, St. Julian's, Malta. We also have a bracelet counter at The Plaza Shopping Centre Level 2, Sliema.",
+                a: '📍 The Plaza Sliema – Level 2 (Mon–Sun, 10am–7pm)\n📍 Mercury Tower – Level B1 (Fri 4–8pm, Sat–Sun 11am–8pm)',
+              },
+              {
+                q: 'Can I bring my own photos?',
+                a: 'Yes! For phone cases you can bring photos on your phone and we\'ll print them for you.',
+              },
+              {
+                q: 'Do you cater for groups & hen parties?',
+                a: 'Absolutely — group sessions are our favourite! Drop us a message on Instagram @oddlycraft for private packages.',
               },
             ].map((faq) => (
               <details
                 key={faq.q}
-                className="group bg-white rounded-2xl border border-gray-100 p-5 cursor-pointer"
+                className="group rounded-2xl p-5 cursor-pointer"
+                style={{ background: 'var(--cream)', border: '2px solid var(--rose)' }}
               >
-                <summary className="font-black text-[#111827] list-none flex items-center justify-between">
+                <summary
+                  className="font-black list-none flex items-center justify-between"
+                  style={{ color: 'var(--maroon)' }}
+                >
                   {faq.q}
-                  <span className="text-[var(--pink)] text-lg group-open:rotate-45 transition-transform inline-block ml-3 flex-none">+</span>
+                  <span
+                    className="text-xl group-open:rotate-45 transition-transform inline-block ml-3 flex-none font-black"
+                    style={{ color: 'var(--maroon-mid)' }}
+                  >
+                    +
+                  </span>
                 </summary>
-                <p className="mt-3 text-gray-500 text-sm leading-relaxed">{faq.a}</p>
+                <p
+                  className="mt-3 text-sm leading-relaxed whitespace-pre-line"
+                  style={{ color: 'var(--maroon-mid)' }}
+                >
+                  {faq.a}
+                </p>
               </details>
             ))}
           </div>
@@ -406,48 +631,60 @@ export default function HomePage() {
       </section>
 
       {/* ── NEWSLETTER ── */}
-      <section id="newsletter" className="py-20 px-4 bg-gradient-to-br from-[var(--pink)] to-[#3b6ec7]">
+      <section id="newsletter" className="py-20 px-4" style={{ background: 'linear-gradient(135deg, var(--maroon) 0%, var(--maroon-mid) 100%)' }}>
         <div className="max-w-xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">
-            join the colorful fun! ♡
+          <div className="text-5xl mb-4">🌸</div>
+          <h2
+            className="text-4xl sm:text-5xl font-black text-white mb-3"
+            style={{ fontFamily: 'var(--font-baloo), sans-serif' }}
+          >
+            join the fun! ♡
           </h2>
-          <p className="text-blue-100 mb-8">
-            Sign up to unlock exclusive discounts, new charm drops, and all the quirky updates
-            from our workshop.
+          <p className="mb-8 font-semibold" style={{ color: 'var(--rose)' }}>
+            Sign up for exclusive discounts, new charm drops, and all the quirky updates from our workshop.
           </p>
           <NewsletterForm />
         </div>
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#111827] text-gray-400 py-12 px-4">
+      <footer className="py-12 px-4" style={{ background: '#5C1129', color: '#F9C5D0' }}>
         <div className="max-w-5xl mx-auto">
           <div className="grid sm:grid-cols-3 gap-8 mb-10">
             <div>
-              <Image
-                src={images.logo}
-                alt="Oddly Craft"
-                width={120}
-                height={28}
-                className="h-7 w-auto object-contain mb-3 brightness-0 invert"
-              />
-              <p className="text-sm leading-relaxed">
+              <div className="mb-3">
+                <Image
+                  src="/logo-transparent.png"
+                  alt="OddlyCraft"
+                  width={773}
+                  height={164}
+                  className="h-14 w-auto object-contain brightness-0 invert"
+                />
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(244,191,204,0.8)' }}>
                 Malta's quirkiest craft workshop. Come make something you'll love ♡
               </p>
             </div>
+
             <div>
-              <div className="text-white font-bold mb-3">Navigate</div>
+              <div className="font-black mb-3 text-white">Navigate</div>
               <ul className="space-y-2 text-sm">
-                <li><a href="/" className="hover:text-white transition">Home</a></li>
-                <li><a href="#workshops" className="hover:text-white transition">Workshops</a></li>
-                <li><a href="#book" className="hover:text-white transition">Booking</a></li>
-                <li><a href="#faqs" className="hover:text-white transition">FAQs</a></li>
+                {[['/', 'Home'], ['#workshops', 'What We Make'], ['#locations', 'Find Us'], ['#book', 'Walk-in'], ['#faqs', 'FAQs']].map(([href, label]) => (
+                  <li key={label}>
+                    <a href={href} className="hover:text-white transition" style={{ color: 'rgba(244,191,204,0.8)' }}>{label}</a>
+                  </li>
+                ))}
               </ul>
             </div>
+
             <div>
-              <div className="text-white font-bold mb-3">Get in Touch</div>
-              <ul className="space-y-2 text-sm">
-                <li><a href="mailto:oddlycraftmalta@gmail.com" className="hover:text-white transition">oddlycraftmalta@gmail.com</a></li>
+              <div className="font-black mb-3 text-white">Get in Touch</div>
+              <ul className="space-y-2 text-sm" style={{ color: 'rgba(244,191,204,0.8)' }}>
+                <li>
+                  <a href="mailto:oddlycraftmalta@gmail.com" className="hover:text-white transition">
+                    oddlycraftmalta@gmail.com
+                  </a>
+                </li>
                 <li><a href="tel:+35699179159" className="hover:text-white transition">+356 9917 9159</a></li>
                 <li><a href="tel:+35699179688" className="hover:text-white transition">+356 9917 9688</a></li>
                 <li className="pt-1">
@@ -455,7 +692,8 @@ export default function HomePage() {
                     href="https://instagram.com/oddlycraft"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-[var(--yellow)] transition font-semibold"
+                    className="hover:text-white transition font-black"
+                    style={{ color: 'var(--rose)' }}
                   >
                     @oddlycraft ↗
                   </a>
@@ -463,9 +701,10 @@ export default function HomePage() {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-700 pt-6 text-center text-sm">
-            <p className="font-bold text-gray-300 mb-1">Thank You For Your Curiosity ♡</p>
-            <p>© {new Date().getFullYear()} Oddly Craft Malta. All rights reserved.</p>
+
+          <div className="border-t pt-6 text-center text-sm" style={{ borderColor: 'rgba(244,191,204,0.2)', color: 'rgba(244,191,204,0.6)' }}>
+            <p className="font-black mb-1" style={{ color: 'var(--rose)' }}>Thank You For Your Curiosity ♡</p>
+            <p>© {new Date().getFullYear()} OddlyCraft Malta. All rights reserved.</p>
           </div>
         </div>
       </footer>

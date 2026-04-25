@@ -1,68 +1,97 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #111827;
+  --background:    #FFF0F4;
+  --foreground:    #3D0E1E;
 
-  /* ── Brand palette — matches the cobalt blue logo ── */
-  --pink: #2249a8;        /* primary brand blue   */
-  --pink-dark: #1a3a8c;   /* darker blue          */
-  --pink-light: #eef3ff;  /* very light blue bg   */
-  --pink-mid: #c5d4f5;    /* medium blue tint     */
+  /* ── OddlyCraft palette — extracted from logo ── */
+  --maroon:        #7B1A38;   /* logo dark */
+  --maroon-dark:   #5C1129;   /* pressed/hover */
+  --maroon-mid:    #9B3A54;   /* lighter maroon */
+  --rose:          #F4BFCC;   /* logo bg pink */
+  --blush:         #FDE8EF;   /* light section bg */
+  --petal:         #FADADD;   /* card bg */
+  --cream:         #FFF8F2;   /* warm near-white */
+  --soft-gray:     #faf5f7;
 
   /* ── Accent ── */
-  --yellow: #ffd234;
-  --yellow-dark: #e6b800;
-
-  --coral: #ff6b6b;
-  --soft-gray: #f9f9f9;
+  --yellow:        #FFE0A0;
+  --yellow-dark:   #F5C842;
+  --coral:         #FF7F7F;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-nunito);
-  --color-brand: var(--pink);
-  --color-brand-dark: var(--pink-dark);
-  --color-brand-light: var(--pink-light);
-  --color-brand-mid: var(--pink-mid);
-  --color-yellow: var(--yellow);
-  --color-yellow-dark: var(--yellow-dark);
-  --color-soft-gray: var(--soft-gray);
+  --color-background:  var(--background);
+  --color-foreground:  var(--foreground);
+  --font-sans:         var(--font-nunito);
+  --font-display:      var(--font-baloo);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-nunito), Arial, sans-serif;
+  font-family: var(--font-nunito), sans-serif;
 }
 
-/* Marquee */
+/* ── Marquee ── */
 @keyframes marquee {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 36s linear infinite;
   display: flex;
   width: max-content;
   will-change: transform;
 }
 
-/* Card hover lift */
+/* ── Float ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-12px) rotate(4deg); }
+}
+@keyframes float-r {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-10px) rotate(-3deg); }
+}
+.animate-float      { animation: float   4s ease-in-out infinite; }
+.animate-float-r    { animation: float-r 5s ease-in-out infinite; }
+.animate-float-slow { animation: float   7s ease-in-out infinite; }
+
+/* ── Spin slow ── */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 18s linear infinite; }
+
+/* ── Card lift ── */
 .card-hover {
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px -8px rgba(34, 73, 168, 0.18);
+  transform: translateY(-6px) rotate(0.5deg);
+  box-shadow: 0 22px 44px -10px rgba(123, 26, 56, 0.22);
 }
 
-/* Active slot button */
+/* ── Slot active (booking step) ── */
 .slot-active {
-  background: var(--pink);
+  background: var(--maroon);
   color: #fff;
-  border-color: var(--pink);
-  box-shadow: 0 0 0 3px rgba(34, 73, 168, 0.2);
+  border-color: var(--maroon);
+  box-shadow: 0 0 0 3px rgba(123, 26, 56, 0.25);
+}
+
+/* ── Polka dot bg ── */
+.dots-bg {
+  background-image: radial-gradient(circle, rgba(123,26,56,0.09) 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
+}
+
+/* ── Wavy divider ── */
+.wave-top::before {
+  content: '';
+  display: block;
+  height: 48px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 48'%3E%3Cpath fill='%23FFF0F4' d='M0,24 C360,48 1080,0 1440,24 L1440,0 L0,0 Z'/%3E%3C/svg%3E") no-repeat center/cover;
 }

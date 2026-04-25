@@ -1,0 +1,213 @@
+{
+  "name": "Oddly Craft — 02 Booking Follow-up Sequence",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oddlycraft-booking-followup",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000001",
+      "name": "Receive Booking",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "oddlycraft-booking-followup"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// Parse booking date + time into a full ISO datetime\n// Assumes date is 'YYYY-MM-DD' and time is 'HH:MM' (24h) or '10:00 AM' etc.\nconst dateStr = item.date || '';\nconst timeStr = item.time || '10:00';\n\n// Normalize time to 24h if needed\nlet time24 = timeStr;\nconst ampmMatch = timeStr.match(/(\\d+):(\\d+)\\s*(AM|PM)/i);\nif (ampmMatch) {\n  let h = parseInt(ampmMatch[1]);\n  const m = ampmMatch[2];\n  const period = ampmMatch[3].toUpperCase();\n  if (period === 'PM' && h !== 12) h += 12;\n  if (period === 'AM' && h === 12) h = 0;\n  time24 = `${String(h).padStart(2, '0')}:${m}`;\n}\n\nconst bookingMs = new Date(`${dateStr}T${time24}:00`).getTime();\n\n// Calculate trigger times\nconst dayBeforeEvening = new Date(bookingMs - 16 * 60 * 60 * 1000); // 16h before session\nconst morningOfBooking = new Date(`${dateStr}T08:00:00`);\nconst dayAfter10am = new Date(bookingMs + 24 * 60 * 60 * 1000);\ndayAfter10am.setHours(10, 0, 0, 0);\nconst twoWeeksLater = new Date(bookingMs + 14 * 24 * 60 * 60 * 1000);\ntwoWeeksLater.setHours(10, 0, 0, 0);\n\nreturn [{\n  json: {\n    ...item,\n    bookingISO: new Date(`${dateStr}T${time24}:00`).toISOString(),\n    dayBeforeEvening: dayBeforeEvening.toISOString(),\n    morningOfBooking: morningOfBooking.toISOString(),\n    dayAfter10am: dayAfter10am.toISOString(),\n    twoWeeksLater: twoWeeksLater.toISOString(),\n    activityLabel: item.activity || 'craft session',\n    partySizeLabel: item.partySize === 1 ? '1 person' : `${item.partySize} people`\n  }\n}];"
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000002",
+      "name": "Calculate Trigger Dates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Your Oddly Craft session is confirmed! 🎉 — {{ $json.date }}",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#ffd234;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Booking Confirmed</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:28px;font-weight:700;\">You're all set, {{ $json.firstName }}!</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">We're so excited to have you join us at Oddly Craft Malta. Here are your booking details:</p>\n    <div style=\"background:#f0f4ff;border-radius:12px;padding:24px;margin:24px 0;\">\n      <table style=\"width:100%;border-collapse:collapse;\">\n        <tr><td style=\"padding:8px 0;color:#7878a0;font-size:13px;text-transform:uppercase;letter-spacing:1px;\">Activity</td><td style=\"padding:8px 0;color:#2249a8;font-weight:700;font-size:15px;\">{{ $json.activityLabel }}</td></tr>\n        <tr><td style=\"padding:8px 0;color:#7878a0;font-size:13px;text-transform:uppercase;letter-spacing:1px;\">Date</td><td style=\"padding:8px 0;color:#1a1a2e;font-weight:600;font-size:15px;\">{{ $json.date }}</td></tr>\n        <tr><td style=\"padding:8px 0;color:#7878a0;font-size:13px;text-transform:uppercase;letter-spacing:1px;\">Time</td><td style=\"padding:8px 0;color:#1a1a2e;font-weight:600;font-size:15px;\">{{ $json.time }}</td></tr>\n        <tr><td style=\"padding:8px 0;color:#7878a0;font-size:13px;text-transform:uppercase;letter-spacing:1px;\">Party size</td><td style=\"padding:8px 0;color:#1a1a2e;font-weight:600;font-size:15px;\">{{ $json.partySizeLabel }}</td></tr>\n        <tr><td style=\"padding:8px 0;color:#7878a0;font-size:13px;text-transform:uppercase;letter-spacing:1px;\">Location</td><td style=\"padding:8px 0;color:#1a1a2e;font-weight:600;font-size:15px;\">Mercury Tower, St. Julian's, Malta</td></tr>\n      </table>\n    </div>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\"><strong>What to bring:</strong> Just yourself and your creativity! We provide all materials — charms, cases, tools, and plenty of good vibes.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">If you need to reschedule or have any questions, reply to this email and we'll sort it out.</p>\n    <div style=\"text-align:center;margin:32px 0;\">\n      <a href=\"https://www.instagram.com/oddlycraft.malta\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">See our latest creations on Instagram</a>\n    </div>\n    <p style=\"color:#888;font-size:13px;text-align:center;\">See you soon — Team Oddly Craft 🎨</p>\n  </div>\n  <div style=\"background:#f0f4ff;padding:20px 40px;text-align:center;\">\n    <p style=\"color:#aaa;font-size:12px;margin:0;\">Oddly Craft Malta · Mercury Tower, St. Julian's · <a href=\"https://oddlycraft.com\" style=\"color:#2249a8;\">oddlycraft.com</a></p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000003",
+      "name": "Email 1 — Booking Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [680, 300],
+      "notes": "SETUP: Add SMTP credential. Use Brevo (brevo.com) free tier: 300 emails/day. SMTP host: smtp-relay.brevo.com, port 587, TLS."
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "date": "={{ $json.dayBeforeEvening }}"
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000004",
+      "name": "Wait — Until Evening Before",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=See you tomorrow at Oddly Craft! 📍",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#1a3a8c;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#ffd234;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Tomorrow</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:26px;font-weight:700;\">Almost time to get crafty, {{ $json.firstName }}!</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Just a quick reminder — your <strong>{{ $json.activityLabel }}</strong> session is tomorrow at <strong>{{ $json.time }}</strong>.</p>\n    <div style=\"background:#f0f4ff;border-left:4px solid #2249a8;border-radius:0 8px 8px 0;padding:16px 20px;margin:24px 0;\">\n      <p style=\"margin:0;color:#2249a8;font-weight:700;font-size:15px;\">📍 Mercury Tower, St. Julian's, Malta</p>\n      <p style=\"margin:8px 0 0;color:#555;font-size:14px;\">Parking available nearby. Look for the Oddly Craft sign!</p>\n    </div>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">✅ Everything is prepared for {{ $json.partySizeLabel }}<br>✅ All materials and tools included<br>✅ No experience needed — just show up!</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Questions? Just reply to this email.</p>\n    <p style=\"color:#888;font-size:13px;text-align:center;margin-top:32px;\">Can't wait to see what you create! — Team Oddly Craft 🎨</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000005",
+      "name": "Email 2 — Day Before Reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "date": "={{ $json.morningOfBooking }}"
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000006",
+      "name": "Wait — Until 8am Day Of",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Today's the day! We're ready for you 🎨",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#ffd234;font-size:36px;margin:0 0 8px;\">🎉</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:26px;font-weight:700;\">It's craft day, {{ $json.firstName }}!</h1>\n  </div>\n  <div style=\"padding:36px 40px;text-align:center;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Your <strong>{{ $json.activityLabel }}</strong> session is today at <strong>{{ $json.time }}</strong>. We're all set up and can't wait to see you.</p>\n    <div style=\"background:#2249a8;border-radius:12px;padding:20px;margin:24px 0;\">\n      <p style=\"color:#ffd234;font-weight:700;font-size:16px;margin:0;\">📍 Mercury Tower, St. Julian's, Malta</p>\n    </div>\n    <p style=\"color:#555;font-size:14px;\">See you soon! — Team Oddly Craft</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000007",
+      "name": "Email 3 — Day Of",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "date": "={{ $json.dayAfter10am }}"
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000008",
+      "name": "Wait — Until 10am Day After",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=How was your Oddly Craft experience? ⭐",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#ffd234;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#2249a8;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Thank You</p>\n    <h1 style=\"color:#1a1a2e;margin:0;font-size:26px;font-weight:700;\">Hope you had an amazing time, {{ $json.firstName }}!</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Yesterday you joined us for a <strong>{{ $json.activityLabel }}</strong> session and we hope you walked away with something you're proud of — and maybe a little addicted to crafting! 😄</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Your review means the world to a small business like ours. If you enjoyed your experience, please take 60 seconds to leave us a Google review:</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://g.page/r/YOUR_GOOGLE_REVIEW_LINK\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">⭐ Leave a Google Review</a>\n    </div>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">If anything wasn't perfect, please just reply to this email and tell us — we read every message and take it seriously.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Tag us on Instagram <strong>@oddlycraft.malta</strong> if you share your creation — we love to see and repost your work!</p>\n    <p style=\"color:#888;font-size:13px;text-align:center;margin-top:32px;\">Thank you for choosing Oddly Craft Malta 💙</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000009",
+      "name": "Email 4 — Thank You + Review Request",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2000, 300],
+      "notes": "SETUP: Replace YOUR_GOOGLE_REVIEW_LINK with your actual Google Business review URL"
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "date": "={{ $json.twoWeeksLater }}"
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000010",
+      "name": "Wait — 14 Days After Visit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Come back to Oddly Craft — bring a friend! 🎁",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#ffd234;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">We Miss You</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:26px;font-weight:700;\">It's been two weeks, {{ $json.firstName }} 👋</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">We've been busy creating new Italian charm designs and fresh phone case styles since your visit. There's always something new to discover at Oddly Craft!</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Why not make it a date? Bring a friend, a colleague, or your family for a fun creative session together. Groups love it here.</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Book Your Next Session</a>\n    </div>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Or follow us on <a href=\"https://www.instagram.com/oddlycraft.malta\" style=\"color:#2249a8;\">@oddlycraft.malta</a> to stay inspired!</p>\n    <p style=\"color:#888;font-size:13px;text-align:center;margin-top:32px;\">Hope to see you again soon — Team Oddly Craft 🎨</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-0002-4000-8000-000000000011",
+      "name": "Email 5 — Return Offer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2440, 300]
+    }
+  ],
+  "connections": {
+    "Receive Booking": {
+      "main": [
+        [{ "node": "Calculate Trigger Dates", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calculate Trigger Dates": {
+      "main": [
+        [{ "node": "Email 1 — Booking Confirmation", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 1 — Booking Confirmation": {
+      "main": [
+        [{ "node": "Wait — Until Evening Before", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait — Until Evening Before": {
+      "main": [
+        [{ "node": "Email 2 — Day Before Reminder", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 2 — Day Before Reminder": {
+      "main": [
+        [{ "node": "Wait — Until 8am Day Of", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait — Until 8am Day Of": {
+      "main": [
+        [{ "node": "Email 3 — Day Of", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 3 — Day Of": {
+      "main": [
+        [{ "node": "Wait — Until 10am Day After", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait — Until 10am Day After": {
+      "main": [
+        [{ "node": "Email 4 — Thank You + Review Request", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 4 — Thank You + Review Request": {
+      "main": [
+        [{ "node": "Wait — 14 Days After Visit", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait — 14 Days After Visit": {
+      "main": [
+        [{ "node": "Email 5 — Return Offer", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "b2c3d4e5-0002-4000-8000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "Oddly Craft" }]
+}

@@ -1,0 +1,241 @@
+{
+  "name": "Oddly Craft — 01 Lead Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oddlycraft-lead",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Receive Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "oddlycraft-lead"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst name = (item.name || '').trim();\nconst parts = name.split(' ');\nreturn [{\n  json: {\n    type: item.type || 'newsletter',\n    name: name,\n    firstName: parts[0] || '',\n    lastName: parts.slice(1).join(' ') || '',\n    email: (item.email || '').toLowerCase().trim(),\n    phone: item.phone || '',\n    date: item.date || '',\n    time: item.time || '',\n    activity: item.activity || '',\n    partySize: item.partySize || 1,\n    submittedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
+      "name": "Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "id": "rule-booking",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "booking",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Booking"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "id": "rule-newsletter",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "newsletter",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Newsletter"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
+      "name": "Route by Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $credentials.hubspotApiKey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"firstname\": \"{{ $json.firstName }}\",\n    \"lastname\": \"{{ $json.lastName }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"hs_lead_status\": \"NEW\",\n    \"lead_source\": \"Website Booking Form\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": { "neverError": true }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
+      "name": "Create HubSpot Contact (Booking)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 160],
+      "notes": "SETUP: In Credentials, create HTTP Header Auth named 'HubSpot API'. Header name: Authorization. Value: Bearer YOUR_HUBSPOT_API_KEY"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $credentials.hubspotApiKey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"dealname\": \"{{ $('Normalize Data').item.json.name }} — {{ $('Normalize Data').item.json.activity }} ({{ $('Normalize Data').item.json.date }})\",\n    \"dealstage\": \"appointmentscheduled\",\n    \"amount\": \"0\",\n    \"closedate\": \"{{ $('Normalize Data').item.json.date }}\",\n    \"name\": \"{{ $('Normalize Data').item.json.name }}\",\n    \"newlead\": \"0\"\n  },\n  \"associations\": [\n    {\n      \"to\": { \"id\": \"{{ $json.id }}\" },\n      \"types\": [{ \"associationCategory\": \"HUBSPOT_DEFINED\", \"associationTypeId\": 3 }]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000005",
+      "name": "Create HubSpot Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=YOUR_BOOKING_FOLLOWUP_WEBHOOK_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Normalize Data').item.json) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000006",
+      "name": "Trigger Booking Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 160],
+      "notes": "SETUP: Replace YOUR_BOOKING_FOLLOWUP_WEBHOOK_URL with the webhook URL from workflow 02-booking-followup"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $credentials.hubspotApiKey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"properties\": {\n    \"email\": \"{{ $json.email }}\",\n    \"firstname\": \"{{ $json.firstName }}\",\n    \"lastname\": \"{{ $json.lastName }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"hs_lead_status\": \"NEW\",\n    \"lead_source\": \"Website Newsletter Form\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": { "neverError": true }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000007",
+      "name": "Create HubSpot Contact (Newsletter)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [920, 440]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=YOUR_NEWSLETTER_NURTURE_WEBHOOK_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Normalize Data').item.json) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000008",
+      "name": "Trigger Nurture Sequence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 440],
+      "notes": "SETUP: Replace YOUR_NEWSLETTER_NURTURE_WEBHOOK_URL with the webhook URL from workflow 03-newsletter-nurture"
+    }
+  ],
+  "connections": {
+    "Receive Lead": {
+      "main": [
+        [{ "node": "Normalize Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [{ "node": "Route by Type", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Type": {
+      "main": [
+        [{ "node": "Create HubSpot Contact (Booking)", "type": "main", "index": 0 }],
+        [{ "node": "Create HubSpot Contact (Newsletter)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create HubSpot Contact (Booking)": {
+      "main": [
+        [{ "node": "Create HubSpot Deal", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create HubSpot Deal": {
+      "main": [
+        [{ "node": "Trigger Booking Follow-up", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create HubSpot Contact (Newsletter)": {
+      "main": [
+        [{ "node": "Trigger Nurture Sequence", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "a1b2c3d4-0001-4000-8000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "Oddly Craft" }]
+}

@@ -20,11 +20,7 @@ export default function NewsletterForm() {
     }
 
     try {
-      const res  = await fetch('/api/lead', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const res  = await fetch('/api/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (res.ok) {
         setStatus('success')
@@ -57,14 +53,16 @@ export default function NewsletterForm() {
           type="text"
           required
           placeholder="First Name"
-          className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-white outline-none transition text-sm bg-white text-gray-800 placeholder-gray-400"
+          className="w-full px-4 py-3 rounded-xl border-2 outline-none transition text-sm bg-white text-gray-800 placeholder-gray-400"
+          style={{ borderColor: 'rgba(244,191,204,0.5)' }}
         />
         <input
           name="email"
           type="email"
           required
           placeholder="Email Address"
-          className="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-white outline-none transition text-sm bg-white text-gray-800 placeholder-gray-400"
+          className="w-full px-4 py-3 rounded-xl border-2 outline-none transition text-sm bg-white text-gray-800 placeholder-gray-400"
+          style={{ borderColor: 'rgba(244,191,204,0.5)' }}
         />
       </div>
 
@@ -77,8 +75,8 @@ export default function NewsletterForm() {
       <button
         type="submit"
         disabled={status === 'loading'}
-        className="w-full py-4 hover:opacity-90 disabled:opacity-60 text-[#111827] font-black text-lg rounded-2xl shadow-lg transition-all cursor-pointer disabled:cursor-not-allowed"
-        style={{ backgroundColor: '#FFFAA0' }}
+        className="w-full py-4 font-black text-lg rounded-2xl shadow-lg transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed hover:opacity-90"
+        style={{ background: 'var(--rose)', color: 'var(--maroon)' }}
       >
         {status === 'loading' ? 'Joining…' : "Sign Up — It's Free! ♡"}
       </button>

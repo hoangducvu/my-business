@@ -1,0 +1,251 @@
+{
+  "name": "Oddly Craft — 03 Newsletter Nurture (7 Emails / 14 Days)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oddlycraft-newsletter-nurture",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000001",
+      "name": "Receive Subscriber",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "oddlycraft-newsletter-nurture"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Welcome to Oddly Craft, {{ $json.firstName }}! 🌟",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <p style=\"color:#ffd234;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Welcome!</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:28px;font-weight:700;\">Hi {{ $json.firstName }}, you're in! 🎉</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Thanks for subscribing to Oddly Craft Malta. You've just joined a community of people who believe crafting should be fun, social, and accessible to everyone — no artistic talent required.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Here's a quick taste of what we do:</p>\n    <div style=\"display:flex;gap:0;margin:20px 0;\">\n      <div style=\"flex:1;background:#f0f4ff;border-radius:10px;padding:18px;margin:0 6px 0 0;text-align:center;\">\n        <p style=\"font-size:28px;margin:0 0 8px;\">💎</p>\n        <p style=\"color:#2249a8;font-weight:700;font-size:14px;margin:0;\">Italian Charm Bracelets</p>\n        <p style=\"color:#888;font-size:12px;margin:6px 0 0;\">Design your own custom charm bracelet</p>\n      </div>\n      <div style=\"flex:1;background:#fff5ee;border-radius:10px;padding:18px;margin:0 0 0 6px;text-align:center;\">\n        <p style=\"font-size:28px;margin:0 0 8px;\">📱</p>\n        <p style=\"color:#e8a87c;font-weight:700;font-size:14px;margin:0;\">Custom Phone Cases</p>\n        <p style=\"color:#888;font-size:12px;margin:6px 0 0;\">One-of-a-kind designs, made by you</p>\n      </div>\n    </div>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">We're based at <strong>Mercury Tower, St. Julian's, Malta</strong> and sessions are open to everyone — individuals, couples, friends, and corporate groups.</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Explore Our Sessions</a>\n    </div>\n    <p style=\"color:#888;font-size:12px;text-align:center;\">Over the next two weeks, we'll share our best tips, inspiration, and a special offer. Stay tuned!</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000002",
+      "name": "Email 1 — Welcome",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [460, 300],
+      "notes": "SETUP: Add your SMTP credential (Brevo recommended — free 300 emails/day). Set fromEmail to your real sending address."
+    },
+    {
+      "parameters": { "amount": 2, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000003",
+      "name": "Wait 2 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=What actually happens inside an Oddly Craft session?",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#1a3a8c;padding:36px 40px;\">\n    <p style=\"color:#ffd234;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Inside Look</p>\n    <h1 style=\"color:#ffffff;margin:0;font-size:24px;font-weight:700;\">\"But I'm not creative\" — we hear this every day.</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">And every single time, the person saying it walks out with something they're genuinely proud of. Here's how a session actually works:</p>\n    <ol style=\"color:#444;font-size:15px;line-height:1.9;padding-left:20px;\">\n      <li><strong>You arrive</strong> — we get you set up with your kit</li>\n      <li><strong>You browse</strong> — choose from hundreds of charms or case designs</li>\n      <li><strong>You create</strong> — our team guides you every step of the way</li>\n      <li><strong>You leave</strong> — with a one-of-a-kind piece nobody else has</li>\n    </ol>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Sessions run 60–90 minutes and are perfect for date nights, birthdays, team outings, or just a fun afternoon.</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Book a Session</a>\n    </div>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000004",
+      "name": "Email 2 — How It Works",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": { "amount": 2, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000005",
+      "name": "Wait 2 Days (2)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Real people, real creations — see what our guests made 🔥",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <h1 style=\"color:#ffffff;margin:0;font-size:24px;font-weight:700;\">Every piece is unique. Every visit is different.</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">At Oddly Craft, no two sessions produce the same result. The charm combination you choose, the case design you draw — it's entirely yours. Here's what some of our recent guests created:</p>\n    <div style=\"text-align:center;margin:24px 0;\">\n      <a href=\"https://www.instagram.com/oddlycraft.malta\" style=\"display:inline-block;\">\n        <img src=\"https://images.squarespace-cdn.com/content/v1/66b355473e77ee151ad26afd/855f872f-a835-4359-923c-7d5fad7e2aa0/IMG_9974.JPG\" alt=\"Oddly Craft Creation\" style=\"width:100%;border-radius:12px;\" />\n      </a>\n      <p style=\"color:#888;font-size:12px;margin:8px 0 0;\">Follow us <a href=\"https://www.instagram.com/oddlycraft.malta\" style=\"color:#2249a8;\">@oddlycraft.malta</a> for daily inspiration</p>\n    </div>\n    <div style=\"background:#f0f4ff;border-radius:12px;padding:20px;\">\n      <p style=\"color:#2249a8;font-style:italic;font-size:15px;line-height:1.7;margin:0;\">&ldquo;I came in thinking I'd make something basic. I left with a bracelet I've worn every day since.&rdquo;</p>\n      <p style=\"color:#888;font-size:13px;margin:8px 0 0;\">— Recent Oddly Craft visitor</p>\n    </div>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">I Want To Make Something</a>\n    </div>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000006",
+      "name": "Email 3 — Social Proof",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": { "amount": 2, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000007",
+      "name": "Wait 2 Days (3)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Perfect for groups — here's why teams love Oddly Craft 🤝",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#ffd234;padding:36px 40px;\">\n    <p style=\"color:#2249a8;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Groups & Events</p>\n    <h1 style=\"color:#1a1a2e;margin:0;font-size:24px;font-weight:700;\">Looking for something different for your next group outing?</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Oddly Craft is perfect for groups of all kinds. Here's what we hear most:</p>\n    <ul style=\"color:#444;font-size:15px;line-height:1.9;\">\n      <li><strong>Birthday parties</strong> — a creative twist on the usual dinner out</li>\n      <li><strong>Hen do / bachelorette</strong> — make matching bracelets as a keepsake</li>\n      <li><strong>Team building</strong> — companies love the relaxed, creative atmosphere</li>\n      <li><strong>Date nights</strong> — crafting together is surprisingly romantic!</li>\n      <li><strong>Family visits</strong> — great for kids aged 8+ and adults alike</li>\n    </ul>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">We can accommodate groups of up to 20 people. For larger groups, contact us directly.</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Book for a Group</a>\n    </div>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000008",
+      "name": "Email 4 — Groups & Events",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": { "amount": 2, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000009",
+      "name": "Wait 2 Days (4)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Your questions answered — FAQ about Oddly Craft 💬",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#2249a8;padding:36px 40px;\">\n    <h1 style=\"color:#ffffff;margin:0;font-size:24px;font-weight:700;\">Got questions? We've got answers.</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <div style=\"margin-bottom:20px;\">\n      <p style=\"color:#2249a8;font-weight:700;font-size:15px;margin:0 0 6px;\">Q: Do I need any experience?</p>\n      <p style=\"color:#444;font-size:14px;line-height:1.6;margin:0;\">A: Absolutely not. We guide you through every step. Most first-timers are amazed by what they create.</p>\n    </div>\n    <div style=\"margin-bottom:20px;\">\n      <p style=\"color:#2249a8;font-weight:700;font-size:15px;margin:0 0 6px;\">Q: How long does a session take?</p>\n      <p style=\"color:#444;font-size:14px;line-height:1.6;margin:0;\">A: Between 60 and 90 minutes depending on the activity and how detailed you want to get.</p>\n    </div>\n    <div style=\"margin-bottom:20px;\">\n      <p style=\"color:#2249a8;font-weight:700;font-size:15px;margin:0 0 6px;\">Q: What's included in the price?</p>\n      <p style=\"color:#444;font-size:14px;line-height:1.6;margin:0;\">A: Everything — materials, tools, guidance, and of course your finished creation to take home.</p>\n    </div>\n    <div style=\"margin-bottom:20px;\">\n      <p style=\"color:#2249a8;font-weight:700;font-size:15px;margin:0 0 6px;\">Q: Where are you located?</p>\n      <p style=\"color:#444;font-size:14px;line-height:1.6;margin:0;\">A: Mercury Tower, St. Julian's, Malta. Easy to find with parking nearby.</p>\n    </div>\n    <div style=\"margin-bottom:24px;\">\n      <p style=\"color:#2249a8;font-weight:700;font-size:15px;margin:0 0 6px;\">Q: Can I book for a special occasion?</p>\n      <p style=\"color:#444;font-size:14px;line-height:1.6;margin:0;\">A: Yes! We do birthdays, hen dos, team events, and private sessions. Just contact us and we'll arrange everything.</p>\n    </div>\n    <div style=\"text-align:center;margin:20px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Ready to Book?</a>\n    </div>\n    <p style=\"color:#888;font-size:13px;text-align:center;\">Still have a question? Just reply to this email — we respond within a few hours.</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000010",
+      "name": "Email 5 — FAQ",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": { "amount": 3, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000011",
+      "name": "Wait 3 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Spots fill up fast on weekends — here's why 👀",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#c9a84c;padding:36px 40px;\">\n    <p style=\"color:#fff;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 8px;\">Limited Availability</p>\n    <h1 style=\"color:#1a1a2e;margin:0;font-size:24px;font-weight:700;\">Weekend sessions at Oddly Craft book out fast.</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">Malta is a small island — and once word got out about Oddly Craft, weekends started filling up weeks in advance. If you've been thinking about booking, now is a good time.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">Weekday sessions have more availability and are great for a quieter, more personal experience. Either way — don't leave it too long.</p>\n    <div style=\"background:#fff8e1;border-left:4px solid #c9a84c;border-radius:0 8px 8px 0;padding:16px 20px;margin:24px 0;\">\n      <p style=\"margin:0;color:#8a6a00;font-weight:700;font-size:15px;\">✦ Italian Charm Bracelets — highly popular</p>\n      <p style=\"margin:6px 0 0;color:#8a6a00;font-weight:700;font-size:15px;\">✦ Custom Phone Cases — also in high demand</p>\n    </div>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#2249a8;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;\">Check Availability Now</a>\n    </div>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000012",
+      "name": "Email 6 — Urgency",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2660, 300]
+    },
+    {
+      "parameters": { "amount": 3, "unit": "days" },
+      "id": "c3d4e5f6-0003-4000-8000-000000000013",
+      "name": "Wait 3 Days (2)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2880, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@oddlycraft.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Last nudge — then we'll leave you in peace 😄",
+        "emailType": "html",
+        "message": "=<!DOCTYPE html>\n<html>\n<body style=\"margin:0;padding:0;background:#f9f6f1;font-family:'Helvetica Neue',Arial,sans-serif;\">\n<div style=\"max-width:580px;margin:40px auto;background:#ffffff;border-radius:16px;overflow:hidden;\">\n  <div style=\"background:#2249a8;padding:36px 40px;text-align:center;\">\n    <h1 style=\"color:#ffffff;margin:0;font-size:24px;font-weight:700;\">One last thing, {{ $json.firstName }}.</h1>\n  </div>\n  <div style=\"padding:36px 40px;\">\n    <p style=\"color:#444;font-size:16px;line-height:1.6;\">We've been in your inbox for two weeks now. If you haven't booked yet, that's completely fine — life gets busy.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">But if Oddly Craft has been sitting in the back of your mind as something you want to try, this is your sign.</p>\n    <p style=\"color:#444;font-size:15px;line-height:1.7;\">We genuinely believe that everyone who walks through our door leaves with something they didn't expect: a piece they're proud of, and a surprisingly good time making it.</p>\n    <div style=\"text-align:center;margin:28px 0;\">\n      <a href=\"https://oddlycraft.com\" style=\"display:inline-block;background:#ffd234;color:#1a1a2e;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:800;font-size:16px;\">Book Your Session →</a>\n    </div>\n    <p style=\"color:#888;font-size:13px;text-align:center;\">After this, you'll only hear from us when we have something genuinely worth sharing — new designs, special offers, or events.</p>\n    <p style=\"color:#888;font-size:13px;text-align:center;\">Thanks for being here. — Team Oddly Craft 💙</p>\n  </div>\n</div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-4000-8000-000000000014",
+      "name": "Email 7 — Final Nudge",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [3100, 300]
+    }
+  ],
+  "connections": {
+    "Receive Subscriber": {
+      "main": [
+        [{ "node": "Email 1 — Welcome", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 1 — Welcome": {
+      "main": [
+        [{ "node": "Wait 2 Days", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 2 Days": {
+      "main": [
+        [{ "node": "Email 2 — How It Works", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 2 — How It Works": {
+      "main": [
+        [{ "node": "Wait 2 Days (2)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 2 Days (2)": {
+      "main": [
+        [{ "node": "Email 3 — Social Proof", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 3 — Social Proof": {
+      "main": [
+        [{ "node": "Wait 2 Days (3)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 2 Days (3)": {
+      "main": [
+        [{ "node": "Email 4 — Groups & Events", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 4 — Groups & Events": {
+      "main": [
+        [{ "node": "Wait 2 Days (4)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 2 Days (4)": {
+      "main": [
+        [{ "node": "Email 5 — FAQ", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 5 — FAQ": {
+      "main": [
+        [{ "node": "Wait 3 Days", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 3 Days": {
+      "main": [
+        [{ "node": "Email 6 — Urgency", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email 6 — Urgency": {
+      "main": [
+        [{ "node": "Wait 3 Days (2)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 3 Days (2)": {
+      "main": [
+        [{ "node": "Email 7 — Final Nudge", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "c3d4e5f6-0003-4000-8000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "Oddly Craft" }]
+}
