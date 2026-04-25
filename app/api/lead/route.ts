@@ -14,8 +14,13 @@ const aj = arcjet({
   ],
 })
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-04-22.dahlia' })
+
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) throw new Error('Missing RESEND_API_KEY env var')
+  return new Resend(key)
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -216,7 +221,7 @@ export async function POST(request: Request) {
   // 6. For newsletter, just send email and return
   if (type === 'newsletter') {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: process.env.RESEND_FROM!,
         to: email,
         subject: '🎉 Welcome to OddlyCraft!',
@@ -240,7 +245,7 @@ export async function POST(request: Request) {
   if (!hasPricing) {
     // Walk-in activity — send confirmation email, no payment
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from: process.env.RESEND_FROM!,
         to: email,
         subject: '🎨 Your OddlyCraft spot is reserved!',

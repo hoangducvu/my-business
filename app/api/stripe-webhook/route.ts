@@ -9,7 +9,11 @@ import { invoiceEmailHtml } from '@/lib/invoice-email'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-04-22.dahlia',
 })
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) throw new Error('Missing RESEND_API_KEY env var')
+  return new Resend(key)
+}
 
 function getSheetsClient() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
@@ -116,7 +120,7 @@ export async function POST(request: Request) {
 
   if (customerEmail) {
     try {
-      await resend.emails.send({
+      await getResend().emails.send({
         from:    process.env.RESEND_FROM!,
         to:      customerEmail,
         subject: '🎉 Payment confirmed — your OddlyCraft receipt',

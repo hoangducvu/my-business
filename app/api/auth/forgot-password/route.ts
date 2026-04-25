@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { findUserByEmail, setUserResetToken } from '@/lib/sheets-users'
 
-const resend   = new Resend(process.env.RESEND_API_KEY)
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) throw new Error('Missing RESEND_API_KEY env var')
+  return new Resend(key)
+}
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>
@@ -30,7 +35,7 @@ export async function POST(request: Request) {
     const resetUrl = `${origin}/reset-password?token=${token}`
     const firstName = user.name.split(' ')[0] || user.name
 
-    await resend.emails.send({
+    await getResend().emails.send({
       from:    process.env.RESEND_FROM!,
       to:      email,
       subject: '🔑 Reset your OddlyCraft password',
