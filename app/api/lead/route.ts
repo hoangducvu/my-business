@@ -3,6 +3,10 @@ import { google } from 'googleapis'
 import { Resend } from 'resend'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { bookingConfirmEmailHtml, ownerBookingNotifHtml } from '@/lib/email-templates'
+import { createBookingCalendarEvent } from '@/lib/google-calendar'
+
+const OWNER_EMAIL = 'vuhoangduc1701@gmail.com'
 
 const aj = arcjet({
   key: process.env.ARCJET_KEY!,
@@ -79,65 +83,6 @@ const LOCATION_LABELS: Record<string, string> = {
   mercury: 'Mercury Tower — Level B1',
 }
 
-// ─── Email: booking confirmation (walk-in / no payment) ─────────────────────
-function bookingEmailHtml(
-  name: string, email: string,
-  date: string, time: string,
-  activity: string, partySize: number, location: string
-) {
-  const actLabel  = ACTIVITY_LABELS[activity]  ?? activity
-  const locLabel  = LOCATION_LABELS[location]  ?? location
-  const firstName = name.split(' ')[0] || name
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#FFF0F4;font-family:system-ui,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF0F4;padding:32px 16px;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
-  <tr><td style="background:#7B1A38;padding:28px 32px;text-align:center;">
-    <p style="margin:0;font-size:28px;">🎨</p>
-    <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:900;">Your spot is reserved!</h1>
-  </td></tr>
-  <tr><td style="padding:28px 32px;">
-    <p style="margin:0 0 16px;font-size:16px;color:#3D0E1E;">Hey <strong>${firstName}</strong> 👋</p>
-    <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.6;">
-      We've got your booking at <strong>OddlyCraft Malta</strong>. We'll confirm within 1 hour — no payment taken yet!
-    </p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#FDE8EF;border-radius:12px;padding:20px;margin-bottom:24px;">
-      <tr><td style="padding:6px 0;"><span style="font-size:13px;font-weight:700;color:#9B3A54;text-transform:uppercase;letter-spacing:.05em;">Booking Summary</span></td></tr>
-      <tr><td style="padding:8px 0;border-top:1px solid #F4BFCC;"><table width="100%"><tr>
-        <td style="font-size:14px;color:#7B1A38;font-weight:700;">📍 Location</td>
-        <td style="font-size:14px;color:#3D0E1E;text-align:right;">${locLabel}</td>
-      </tr></table></td></tr>
-      <tr><td style="padding:8px 0;border-top:1px solid #F4BFCC;"><table width="100%"><tr>
-        <td style="font-size:14px;color:#7B1A38;font-weight:700;">📅 Date</td>
-        <td style="font-size:14px;color:#3D0E1E;text-align:right;">${date}</td>
-      </tr></table></td></tr>
-      <tr><td style="padding:8px 0;border-top:1px solid #F4BFCC;"><table width="100%"><tr>
-        <td style="font-size:14px;color:#7B1A38;font-weight:700;">🕐 Time</td>
-        <td style="font-size:14px;color:#3D0E1E;text-align:right;">${time}</td>
-      </tr></table></td></tr>
-      <tr><td style="padding:8px 0;border-top:1px solid #F4BFCC;"><table width="100%"><tr>
-        <td style="font-size:14px;color:#7B1A38;font-weight:700;">🎨 Activity</td>
-        <td style="font-size:14px;color:#3D0E1E;text-align:right;">${actLabel}</td>
-      </tr></table></td></tr>
-      <tr><td style="padding:8px 0;border-top:1px solid #F4BFCC;"><table width="100%"><tr>
-        <td style="font-size:14px;color:#7B1A38;font-weight:700;">👥 People</td>
-        <td style="font-size:14px;color:#3D0E1E;text-align:right;">${partySize}</td>
-      </tr></table></td></tr>
-    </table>
-    <p style="margin:0;font-size:14px;color:#9B3A54;">See you soon ♡<br><strong>The OddlyCraft Team</strong></p>
-  </td></tr>
-  <tr><td style="background:#FDE8EF;padding:16px 32px;text-align:center;">
-    <p style="margin:0;font-size:12px;color:#9B3A54;">Confirmation for: ${email}</p>
-  </td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
-}
 
 function newsletterEmailHtml(name: string) {
   const firstName = name.split(' ')[0] || name
@@ -243,21 +188,32 @@ export async function POST(request: Request) {
   const hasPricing  = totalCents > 0
 
   if (!hasPricing) {
-    // Walk-in activity — send confirmation email, no payment
-    try {
-      await getResend().emails.send({
-        from: process.env.RESEND_FROM!,
-        to: email,
-        subject: '🎨 Your OddlyCraft spot is reserved!',
-        html: bookingEmailHtml(name, email, date, time, activity, partySize, location),
-      })
-    } catch (err) {
-      console.error('[/api/lead] Booking email error:', err)
-    }
+    // Walk-in activity — send confirmation email to customer + owner, create calendar event
+    const resend = getResend()
+    const [customerResult, ownerResult] = await Promise.allSettled([
+      resend.emails.send({
+        from:    process.env.RESEND_FROM!,
+        to:      email,
+        subject: '🎨 Your OddlyCraft spot is confirmed!',
+        html:    bookingConfirmEmailHtml({ name, email, date, time, activity, partySize, location, paid: false }),
+      }),
+      resend.emails.send({
+        from:    process.env.RESEND_FROM!,
+        to:      OWNER_EMAIL,
+        subject: `📋 New Booking: ${name} — ${activity} on ${date} at ${time}`,
+        html:    ownerBookingNotifHtml({ name, email, phone, date, time, activity, partySize, location, paid: false }),
+      }),
+    ])
+    if (customerResult.status === 'rejected') console.error('[/api/lead] Customer email error:', customerResult.reason)
+    if (ownerResult.status === 'rejected')   console.error('[/api/lead] Owner email error:', ownerResult.reason)
+
+    createBookingCalendarEvent({ name, email, phone, date, time, activity, partySize, location, paid: false })
+      .catch((err) => console.error('[/api/lead] Calendar event error:', err))
+
     const [firstname] = name.split(' ')
     return NextResponse.json({
       success: true,
-      message: `Spot reserved, ${firstname || email}! Check your inbox — we'll confirm within 1 hour.`,
+      message: `Booking confirmed, ${firstname || email}! Check your inbox for details.`,
     })
   }
 
@@ -319,6 +275,29 @@ export async function POST(request: Request) {
     console.error('[/api/lead] Stripe error:', err)
     return NextResponse.json({ message: 'Could not create payment session. Please try again.' }, { status: 502 })
   }
+
+  // Notify owner + create calendar event (pending until Stripe payment completes)
+  const resend = getResend()
+  await Promise.allSettled([
+    resend.emails.send({
+      from:    process.env.RESEND_FROM!,
+      to:      OWNER_EMAIL,
+      subject: `⏳ Pending Payment: ${name} — ${activity} on ${date} at ${time}`,
+      html:    ownerBookingNotifHtml({ name, email, phone, date, time, activity, partySize, location, paid: false }),
+    }),
+    createBookingCalendarEvent({ name, email, phone, date, time, activity, partySize, location, paid: false })
+      .catch((err) => console.error('[/api/lead] Calendar event error:', err)),
+  ])
+
+  return NextResponse.json({
+    success: true,
+    checkoutUrl,
+    message: 'Booking confirmed — completing payment now.',
+  })
+}
+tySize, location, paid: false })
+      .catch((err) => console.error('[/api/lead] Calendar event error:', err)),
+  ])
 
   return NextResponse.json({
     success: true,

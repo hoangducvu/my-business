@@ -48,20 +48,38 @@ const activities = [
   },
   {
     id: 'pencilcase', name: 'Pencil Case',
-    price: 0, priceLabel: 'Walk in for price', emoji: '✏️',
+    price: 0, priceLabel: 'Booking', emoji: '✏️',
     desc: 'Personalise a pencil case that is totally yours',
     included: ['All materials','Guided session','Walk out with it done'],
   },
   {
     id: 'locket',     name: 'Locket Heart',
-    price: 0, priceLabel: 'Walk in for price', emoji: '💝',
+    price: 0, priceLabel: 'Booking', emoji: '💝',
     desc: 'A personalised locket heart — keep someone close',
     included: ['All materials','Guided session','Walk out with it done'],
   },
   {
-    id: 'nightlamp',  name: 'Night Lamp',
-    price: 0, priceLabel: 'Walk in for price', emoji: '🌙',
-    desc: 'Create a custom night lamp with your own design',
+    id: 'passportcover', name: 'Passport Cover',
+    price: 0, priceLabel: 'Booking', emoji: '🛂',
+    desc: 'Personalise your own passport cover',
+    included: ['All materials','Guided session','Walk out with it done'],
+  },
+  {
+    id: 'bagcharm',      name: 'Bag Charm',
+    price: 0, priceLabel: 'Booking', emoji: '👜',
+    desc: 'Create a unique charm for your bag',
+    included: ['All materials','Guided session','Walk out with it done'],
+  },
+  {
+    id: 'beadbracelet',  name: 'Bead Bracelet',
+    price: 0, priceLabel: 'Booking', emoji: '📿',
+    desc: 'Design your own bead bracelet',
+    included: ['All materials','Guided session','Walk out with it done'],
+  },
+  {
+    id: 'phonechain',    name: 'Phone Chain',
+    price: 0, priceLabel: 'Booking', emoji: '📎',
+    desc: 'Create a custom chain for your phone',
     included: ['All materials','Guided session','Walk out with it done'],
   },
 ]
@@ -89,6 +107,10 @@ export default function BookingSection() {
     setDates([])
     setSelectedDate(null)
     setSelectedTime(null)
+    // Reset bracelet selection when switching to Mercury
+    if (selectedLocation === 'mercury' && selectedActivity === 'bracelet') {
+      setSelectedActivity(null)
+    }
     setAvailLoading(true)
     setAvailError(false)
 
@@ -100,8 +122,21 @@ export default function BookingSection() {
   }, [selectedLocation])
 
   const dateObj        = dates.find((d) => d.id === selectedDate)
-  const availableSlots = dateObj?.slots ?? []
-  const activity       = activities.find((a) => a.id === selectedActivity)
+
+  // Filter out past time slots when the selected date is today
+  const todayStr      = new Date().toISOString().slice(0, 10)
+  const currentHour   = new Date().getHours()
+  const rawSlots      = dateObj?.slots ?? []
+  const availableSlots = selectedDate === todayStr
+    ? rawSlots.filter((slot) => parseInt(slot.split(':')[0], 10) > currentHour)
+    : rawSlots
+
+  // Hide Italian Charm Bracelet for Mercury location
+  const visibleActivities = activities.filter((a) =>
+    !(selectedLocation === 'mercury' && a.id === 'bracelet')
+  )
+
+  const activity       = visibleActivities.find((a) => a.id === selectedActivity)
   const total          = activity && activity.price > 0 ? activity.price * partySize : null
   const hasPricing     = total !== null
   const canProceed     = selectedLocation && selectedDate && selectedTime && selectedActivity
@@ -301,7 +336,7 @@ export default function BookingSection() {
               What Would You Like to Make?
             </h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" role="group" aria-label="Activities">
-              {activities.map((a) => {
+              {visibleActivities.map((a) => {
                 const active = selectedActivity === a.id
                 return (
                   <button

@@ -8,7 +8,7 @@ import NavAuthButton from './NavAuthButton'
 export const metadata: Metadata = {
   title: 'OddlyCraft Malta — Customise Your Own Charms, Cases & More',
   description:
-    'Walk-in craft workshop in Malta. Make your own phone case, Italian charm bracelet, pencil case, locket heart or night lamp — no skills needed!',
+    'Walk-in craft workshop in Malta. Make your own phone case, Italian charm bracelet, pencil case, locket heart, passport cover, bag charm, bead bracelet or phone chain — no skills needed!',
 }
 
 const CDN = 'https://images.squarespace-cdn.com/content/v1/66b355473e77ee151ad26afd'
@@ -51,8 +51,8 @@ const products = [
     emoji: '✏️',
     name: 'Pencil Case',
     description: 'Personalise a pencil case that is totally yours',
-    price: 'Walk in',
-    tag: '✨ New!',
+    price: 'Booking',
+    tag: 'Fan fave',
     tagBg: '#B07B10',
     cardBg: '#FEF6DF',
     borderColor: '#E6B830',
@@ -63,7 +63,7 @@ const products = [
     emoji: '💝',
     name: 'Locket Heart',
     description: 'Keep someone close — a locket that tells your story',
-    price: 'Walk in',
+    price: 'Booking',
     tag: 'So cute ♡',
     tagBg: '#7B2A9B',
     cardBg: '#F5E8FD',
@@ -71,16 +71,52 @@ const products = [
     priceColor: '#7B2A9B',
   },
   {
-    id: 'nightlamp',
-    emoji: '🌙',
-    name: 'Night Lamp',
-    description: 'Create a custom night lamp with your own design',
-    price: 'Walk in',
-    tag: 'Fan fave',
+    id: 'passportcover',
+    emoji: '🛂',
+    name: 'Passport Cover',
+    description: 'Personalise your own passport cover — travel in style',
+    price: 'Booking',
+    tag: '✨ New!',
     tagBg: '#1A5C7B',
     cardBg: '#E8F4FD',
     borderColor: '#5AADD4',
     priceColor: '#1A5C7B',
+  },
+  {
+    id: 'bagcharm',
+    emoji: '👜',
+    name: 'Bag Charm',
+    description: 'Create a unique charm that hangs from any bag',
+    price: 'Booking',
+    tag: '✨ New!',
+    tagBg: '#6B2A7B',
+    cardBg: '#F0E8FD',
+    borderColor: '#B47AE0',
+    priceColor: '#6B2A7B',
+  },
+  {
+    id: 'beadbracelet',
+    emoji: '📿',
+    name: 'Bead Bracelet',
+    description: 'Design your own bead bracelet, bead by bead',
+    price: 'Booking',
+    tag: '✨ New!',
+    tagBg: '#7B4A10',
+    cardBg: '#FDF0E0',
+    borderColor: '#E0A040',
+    priceColor: '#7B4A10',
+  },
+  {
+    id: 'phonechain',
+    emoji: '📎',
+    name: 'Phone Chain',
+    description: 'Custom chain for your phone — style meets function',
+    price: 'Booking',
+    tag: '✨ New!',
+    tagBg: '#3B6B1A',
+    cardBg: '#EBF9E2',
+    borderColor: '#7ABD50',
+    priceColor: '#3B6B1A',
   },
 ]
 
@@ -130,34 +166,43 @@ export default function HomePage() {
 
       {/* ── NAV ── */}
       <nav className="sticky top-0 z-50 border-b-2" style={{ background: '#F9C5D0', borderColor: '#E8829A' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           <a href="/" className="flex-none">
             <Image
               src="/logo-transparent.png"
               alt="OddlyCraft"
               width={773}
               height={164}
-              className="h-10 w-auto object-contain"
+              className="h-7 sm:h-10 w-auto object-contain"
               priority
             />
           </a>
 
           <div className="hidden md:flex items-center gap-6 text-sm font-bold" style={{ color: '#7B1A38' }}>
             <a href="#workshops" className="hover:opacity-70 transition">What We Make</a>
-            <a href="#locations" className="hover:opacity-70 transition">Find Us</a>
-            <a href="#book" className="hover:opacity-70 transition">Walk-in</a>
             <a href="#faqs" className="hover:opacity-70 transition">FAQs</a>
+            <a href="/charm-builder" className="hover:opacity-70 transition">Charm Builder</a>
             <a
               href="https://instagram.com/oddlycraft"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 hover:opacity-70 transition"
+              className="inline-flex items-center hover:opacity-70 transition"
               style={{ color: '#7B1A38' }}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
               </svg>
-              @oddlycraft
+            </a>
+            <a
+              href="https://www.tiktok.com/@oddlycraft.mt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center hover:opacity-70 transition"
+              style={{ color: '#7B1A38' }}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.79 1.53V6.77a4.85 4.85 0 01-1.02-.08z"/>
+              </svg>
             </a>
           </div>
 
@@ -165,16 +210,17 @@ export default function HomePage() {
             <NavAuthButton />
             <a
               href="#book"
+              className="text-xs sm:text-sm"
               style={{
                 display: 'inline-flex', alignItems: 'center',
-                padding: '10px 20px', borderRadius: '9999px',
+                padding: '8px 14px', borderRadius: '9999px',
                 background: '#7B1A38', color: 'white',
-                fontWeight: 900, fontSize: '14px',
+                fontWeight: 900,
                 textDecoration: 'none', whiteSpace: 'nowrap',
                 boxShadow: '0 2px 8px rgba(123,26,56,0.35)',
               }}
             >
-              Walk In Today
+              Book
             </a>
           </div>
         </div>
@@ -195,18 +241,6 @@ export default function HomePage() {
 
           {/* Left: copy */}
           <div>
-            {/* Logo mark */}
-            <div className="mb-6">
-              <Image
-                src="/logo-transparent.png"
-                alt="OddlyCraft"
-                width={773}
-                height={164}
-                className="h-28 w-auto object-contain"
-                priority
-              />
-            </div>
-
             <p className="text-sm font-black uppercase tracking-widest mb-3" style={{ color: 'var(--maroon-mid)' }}>
               walk-in craft workshop · malta
             </p>
@@ -221,12 +255,12 @@ export default function HomePage() {
             </h1>
 
             <p className="text-base font-semibold mb-6 max-w-sm" style={{ color: 'var(--maroon-mid)' }}>
-              Five totally customisable creations — no artistic skills needed, just bring your vibe and we'll guide you every step of the way.
+              Eight totally customisable creations — no artistic skills needed, just bring your vibe and we'll guide you every step of the way.
             </p>
 
             {/* Product pills */}
             <div className="flex flex-wrap gap-2 mb-8">
-              {['📱 Phone Case', '🔗 Italian Charms', '✏️ Pencil Case', '💝 Locket Heart', '🌙 Night Lamp'].map((p) => (
+              {['📱 Phone Case', '🔗 Italian Charms', '✏️ Pencil Case', '💝 Locket Heart', '🛂 Passport Cover', '👜 Bag Charm', '📿 Bead Bracelet', '📎 Phone Chain'].map((p) => (
                 <span
                   key={p}
                   className="px-3 py-1.5 rounded-full text-sm font-black border-2"
@@ -312,16 +346,16 @@ export default function HomePage() {
               className="absolute bottom-0 -left-8 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float-slow"
               style={{ border: '2px dashed var(--maroon)', transform: 'rotate(-5deg)', animationDelay: '1.5s' }}
             >
-              <div className="text-3xl mb-1">✏️</div>
-              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Pencil Case</div>
+              <div className="text-3xl mb-1">🛂</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Passport Cover</div>
             </div>
 
             <div
               className="absolute bottom-4 -right-6 bg-white rounded-2xl p-3 shadow-xl text-center w-28 animate-float"
               style={{ border: '2px dashed var(--maroon)', transform: 'rotate(6deg)', animationDelay: '2.2s' }}
             >
-              <div className="text-3xl mb-1">🌙</div>
-              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Night Lamp</div>
+              <div className="text-3xl mb-1">📿</div>
+              <div className="text-xs font-black" style={{ color: 'var(--maroon)', fontFamily: 'var(--font-baloo)' }}>Bead Bracelet</div>
             </div>
 
             <div
@@ -371,11 +405,11 @@ export default function HomePage() {
               what will you make?
             </h2>
             <p className="max-w-md mx-auto font-semibold" style={{ color: 'var(--maroon-mid)' }}>
-              Five unique workshops — pick one, try them all. Every single one is completely yours to design ♡
+              Eight unique workshops — pick one, try them all. Every single one is completely yours to design ♡
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-5">
             {products.map((p) => (
               <a
                 key={p.id}
@@ -586,7 +620,7 @@ export default function HomePage() {
               },
               {
                 q: 'How long does a session take?',
-                a: 'Phone cases take about 45–60 minutes. Charm bracelets can be as quick as 30 minutes depending on how many charms you pick. Other products vary — ask us when you arrive!',
+                a: 'Phone cases take about 45–60 minutes. Charm bracelets can be as quick as 30 minutes depending on how many charms you pick. Bead bracelets, bag charms, phone chains, passport covers, pencil cases and locket hearts vary — ask us when you arrive!',
               },
               {
                 q: 'Where exactly are you located?',

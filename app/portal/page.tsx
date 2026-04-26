@@ -36,6 +36,16 @@ export default async function PortalPage() {
           </div>
 
           <div style={{ display: 'grid', gap: 12, marginBottom: 28 }}>
+            {/* Back to Homepage — shown for all users */}
+            <a href="/"
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: '#7B1A38', borderRadius: 14, textDecoration: 'none' }}>
+              <span style={{ fontSize: 24 }}>🏠</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#fff' }}>Back to Homepage</p>
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: '#F4BFCC' }}>Return to OddlyCraft Malta</p>
+              </div>
+            </a>
+
             {isAdmin && (
               <>
                 <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener noreferrer"
@@ -58,7 +68,7 @@ export default async function PortalPage() {
             )}
 
             {!isAdmin && (
-              <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: '#FFF0F4', borderRadius: 14, textDecoration: 'none', border: '1.5px solid #F4BFCC' }}>
+              <a href="/#book" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: '#FFF0F4', borderRadius: 14, textDecoration: 'none', border: '1.5px solid #F4BFCC' }}>
                 <span style={{ fontSize: 24 }}>🎨</span>
                 <div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#3D0E1E' }}>Book a Workshop</p>
