@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const origin = request.headers.get('origin') ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
 
   // Build Stripe line items
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = []
+  const lineItems: NonNullable<NonNullable<Parameters<typeof stripe.checkout.sessions.create>[0]>['line_items']> = []
 
   // 1. Bracelet base (frame + links)
   const basePriceCents = Math.round(BASE_PRICES[numLinks] * 100)

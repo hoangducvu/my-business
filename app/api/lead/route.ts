@@ -295,13 +295,3 @@ export async function POST(request: Request) {
     message: 'Booking confirmed — completing payment now.',
   })
 }
-tySize, location, paid: false })
-      .catch((err) => console.error('[/api/lead] Calendar event error:', err)),
-  ])
-
-  return NextResponse.json({
-    success: true,
-    checkoutUrl,
-    message: 'Booking confirmed — completing payment now.',
-  })
-}
