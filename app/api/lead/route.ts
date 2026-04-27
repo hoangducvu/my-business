@@ -37,20 +37,15 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth })
 }
 
-// Auto-creates the Invoices tab with headers if it doesn't exist yet
 async function ensureInvoicesSheet() {
   const sheets = getSheetsClient()
   const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID!
-
   const meta = await sheets.spreadsheets.get({ spreadsheetId })
   const exists = meta.data.sheets?.some((s) => s.properties?.title === 'Invoices')
-
   if (!exists) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: 'Invoices' } } }],
-      },
+      requestBody: { requests: [{ addSheet: { properties: { title: 'Invoices' } } }] },
     })
     await sheets.spreadsheets.values.update({
       spreadsheetId,
@@ -64,25 +59,26 @@ async function ensureInvoicesSheet() {
   }
 }
 
-// ─── Activity price map (cents) ─────────────────────────────────────────────
 const ACTIVITY_PRICES: Record<string, number> = {
-  phonecase: 2800,   // €28.00
-  bracelet:  1500,   // €15.00 deposit
+  phonecase: 2800,
+  bracelet:  1500,
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
-  phonecase:  'Phone Case (€28)',
-  bracelet:   'Italian Charm Bracelet (from €15)',
-  pencilcase: 'Pencil Case',
-  locket:     'Locket Heart',
-  nightlamp:  'Night Lamp',
+  phonecase:    'Phone Case (€28)',
+  bracelet:     'Italian Charm Bracelet (from €15)',
+  pencilcase:   'Pencil Case',
+  locket:       'Locket Heart',
+  passportcover:'Passport Cover',
+  bagcharm:     'Bag Charm',
+  beadbracelet: 'Bead Bracelet',
+  phonechain:   'Phone Chain',
 }
 
 const LOCATION_LABELS: Record<string, string> = {
   plaza:   'The Plaza Sliema — Level 2',
   mercury: 'Mercury Tower — Level B1',
 }
-
 
 function newsletterEmailHtml(name: string) {
   const firstName = name.split(' ')[0] || name
@@ -111,30 +107,24 @@ function newsletterEmailHtml(name: string) {
 </html>`
 }
 
-// ─── POST /api/lead ──────────────────────────────────────────────────────────
-
 export async function POST(request: Request) {
-  // 1. Parse body
   let body: Record<string, unknown>
   try { body = await request.json() }
   catch { return NextResponse.json({ message: 'Invalid request body.' }, { status: 400 }) }
 
-  // 2. Extract fields
-  const email     = body.email?.toString().trim()         ?? ''
-  const name      = body.name?.toString().trim()          ?? ''
-  const phone     = body.phone?.toString().trim()         ?? ''
-  const type      = body.type?.toString()                 ?? 'booking'
-  const date      = body.date?.toString()                 ?? ''
-  const time      = body.time?.toString()                 ?? ''
-  const activity  = body.activity?.toString()             ?? ''
+  const email     = body.email?.toString().trim()           ?? ''
+  const name      = body.name?.toString().trim()            ?? ''
+  const phone     = body.phone?.toString().trim()           ?? ''
+  const type      = body.type?.toString()                   ?? 'booking'
+  const date      = body.date?.toString()                   ?? ''
+  const time      = body.time?.toString()                   ?? ''
+  const activity  = body.activity?.toString()               ?? ''
   const location  = body.location?.toString().toLowerCase() ?? ''
-  const partySize = Number(body.partySize)                || 1
+  const partySize = Number(body.partySize)                  || 1
 
-  // 3. Validate email
   if (!email) return NextResponse.json({ message: 'Email is required.' }, { status: 400 })
   if (!EMAIL_RE.test(email)) return NextResponse.json({ message: 'Please enter a valid email address.' }, { status: 400 })
 
-  // 4. Arcjet
   const decision = await aj.protect(request, { email })
   if (decision.isErrored()) {
     console.warn('[/api/lead] Arcjet error — allowing through:', decision.reason)
@@ -146,7 +136,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Request denied.' }, { status: 403 })
   }
 
-  // 5. Write to Leads sheet
+  // Race-condition guard: re-check slot availability before writing
+  if (type === 'booking' && date && time && location) {
+    try {
+      const sheets   = getSheetsClient()
+      const checkRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
+        range: 'Leads!A2:K',
+      })
+      const alreadyBooked = (checkRes.data.values ?? []).some((row) =>
+        row[4]?.toString().trim() === 'booking' &&
+        row[6]?.toString().trim() === date &&
+        row[7]?.toString().trim() === time &&
+        row[10]?.toString().trim().toLowerCase() === location
+      )
+      if (alreadyBooked) {
+        return NextResponse.json({
+          message: 'Sorry, that time slot was just taken. Please choose another time.',
+        }, { status: 409 })
+      }
+    } catch (err) {
+      console.error('[/api/lead] Slot availability check error:', err)
+    }
+  }
+
+  // Write lead to Sheets
   let leadId: string
   try {
     const sheets  = getSheetsClient()
@@ -163,7 +177,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Could not process your submission. Please try again.' }, { status: 502 })
   }
 
-  // 6. For newsletter, just send email and return
   if (type === 'newsletter') {
     try {
       await getResend().emails.send({
@@ -182,33 +195,31 @@ export async function POST(request: Request) {
     })
   }
 
-  // 7. Booking — check if activity has a Stripe price
-  const unitCents   = ACTIVITY_PRICES[activity] ?? 0
-  const totalCents  = unitCents * partySize
-  const hasPricing  = totalCents > 0
+  const unitCents  = ACTIVITY_PRICES[activity] ?? 0
+  const totalCents = unitCents * partySize
+  const hasPricing = totalCents > 0
 
   if (!hasPricing) {
-    // Walk-in activity — send confirmation email to customer + owner, create calendar event
+    // Walk-in: confirm immediately — email + calendar in parallel
     const resend = getResend()
-    const [customerResult, ownerResult] = await Promise.allSettled([
+    const [customerResult, ownerResult, calendarResult] = await Promise.allSettled([
       resend.emails.send({
         from:    process.env.RESEND_FROM!,
         to:      email,
         subject: '🎨 Your OddlyCraft spot is confirmed!',
-        html:    bookingConfirmEmailHtml({ name, email, date, time, activity, partySize, location, paid: false }),
+        html:    bookingConfirmEmailHtml({ name, email, date, time, activity, partySize, location, paid: true }),
       }),
       resend.emails.send({
         from:    process.env.RESEND_FROM!,
         to:      OWNER_EMAIL,
-        subject: `📋 New Booking: ${name} — ${activity} on ${date} at ${time}`,
-        html:    ownerBookingNotifHtml({ name, email, phone, date, time, activity, partySize, location, paid: false }),
+        subject: `✅ New Booking: ${name} — ${activity} on ${date} at ${time}`,
+        html:    ownerBookingNotifHtml({ name, email, phone, date, time, activity, partySize, location, paid: true }),
       }),
+      createBookingCalendarEvent({ name, email, phone, date, time, activity, partySize, location, paid: true }),
     ])
     if (customerResult.status === 'rejected') console.error('[/api/lead] Customer email error:', customerResult.reason)
-    if (ownerResult.status === 'rejected')   console.error('[/api/lead] Owner email error:', ownerResult.reason)
-
-    createBookingCalendarEvent({ name, email, phone, date, time, activity, partySize, location, paid: false })
-      .catch((err) => console.error('[/api/lead] Calendar event error:', err))
+    if (ownerResult.status === 'rejected')    console.error('[/api/lead] Owner email error:', ownerResult.reason)
+    if (calendarResult.status === 'rejected') console.error('[/api/lead] Calendar event error:', calendarResult.reason)
 
     const [firstname] = name.split(' ')
     return NextResponse.json({
@@ -217,16 +228,15 @@ export async function POST(request: Request) {
     })
   }
 
-  // 8. Priced activity — create Invoice row and Stripe Checkout Session
-  const invoiceId  = crypto.randomUUID()
-  const actLabel   = ACTIVITY_LABELS[activity] ?? activity
-  const locLabel   = LOCATION_LABELS[location] ?? location
+  // Priced activity — create invoice + Stripe session
+  const invoiceId   = crypto.randomUUID()
+  const actLabel    = ACTIVITY_LABELS[activity] ?? activity
+  const locLabel    = LOCATION_LABELS[location] ?? location
   const description = `${actLabel} × ${partySize} — ${locLabel} on ${date} at ${time}`
-  const createdAt  = new Date().toISOString()
+  const createdAt   = new Date().toISOString()
 
-  // Write invoice row: A=invoice_id B=customer_name C=customer_email D=amount_cents E=currency F=description G=status H=paid_at I=created_at J=lead_id
   try {
-    await ensureInvoicesSheet()   // creates tab + headers if missing
+    await ensureInvoicesSheet()
     const sheets = getSheetsClient()
     await sheets.spreadsheets.values.append({
       spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
@@ -241,7 +251,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Could not create invoice. Please try again.' }, { status: 502 })
   }
 
-  // Create Stripe Checkout Session
   let checkoutUrl: string
   try {
     const origin = request.headers.get('origin') ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
@@ -261,6 +270,7 @@ export async function POST(request: Request) {
         invoice_id:    invoiceId,
         lead_id:       leadId,
         customer_name: name,
+        phone,
         activity,
         location,
         date,
@@ -276,7 +286,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Could not create payment session. Please try again.' }, { status: 502 })
   }
 
-  // Notify owner + create calendar event (pending until Stripe payment completes)
+  // Notify owner only — calendar created in stripe-webhook after payment confirms
   const resend = getResend()
   await Promise.allSettled([
     resend.emails.send({
@@ -285,8 +295,6 @@ export async function POST(request: Request) {
       subject: `⏳ Pending Payment: ${name} — ${activity} on ${date} at ${time}`,
       html:    ownerBookingNotifHtml({ name, email, phone, date, time, activity, partySize, location, paid: false }),
     }),
-    createBookingCalendarEvent({ name, email, phone, date, time, activity, partySize, location, paid: false })
-      .catch((err) => console.error('[/api/lead] Calendar event error:', err)),
   ])
 
   return NextResponse.json({

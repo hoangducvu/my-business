@@ -9,6 +9,7 @@ import {
   charmOrderInvoiceEmailHtml,
   ownerCharmNotifHtml,
 } from '@/lib/email-templates'
+import { createBookingCalendarEvent } from '@/lib/google-calendar'
 
 const OWNER_EMAIL = 'vuhoangduc1701@gmail.com'
 
@@ -166,10 +167,11 @@ async function handleBookingPayment(
   const currency      = invoiceRow[4]?.toString() || 'EUR'
   const description   = invoiceRow[5]?.toString() || 'OddlyCraft session'
 
-  const activity  = meta.activity  ?? ''
-  const location  = meta.location  ?? ''
-  const date      = meta.date      ?? ''
-  const time      = meta.time      ?? ''
+  const activity  = meta.activity   ?? ''
+  const location  = meta.location   ?? ''
+  const date      = meta.date       ?? ''
+  const time      = meta.time       ?? ''
+  const phone     = meta.phone      ?? ''
   const partySize = parseInt(meta.party_size ?? '1', 10)
   const isBooking = !!(activity && location && date && time)
 
@@ -181,15 +183,18 @@ async function handleBookingPayment(
         resend.emails.send({
           from:    process.env.RESEND_FROM!,
           to:      customerEmail,
-          subject: 'Booking confirmed and paid - OddlyCraft Malta',
+          subject: '✅ Booking confirmed and paid — OddlyCraft Malta',
           html:    bookingConfirmEmailHtml({ name: customerName, email: customerEmail, date, time, activity, partySize, location, paid: true }),
         }),
         resend.emails.send({
           from:    process.env.RESEND_FROM!,
           to:      OWNER_EMAIL,
-          subject: `Paid Booking: ${customerName} - ${activity} on ${date} at ${time}`,
+          subject: `✅ Paid Booking: ${customerName} — ${activity} on ${date} at ${time}`,
           html:    ownerBookingNotifHtml({ name: customerName, email: customerEmail, date, time, activity, partySize, location, paid: true }),
         }),
+        // Create calendar event now that payment is confirmed
+        createBookingCalendarEvent({ name: customerName, email: customerEmail, phone, date, time, activity, partySize, location, paid: true })
+          .catch((err) => console.error('[/api/stripe-webhook] Calendar event error:', err)),
       ])
     } else {
       await Promise.allSettled([

@@ -60,7 +60,13 @@ export async function createBookingCalendarEvent(opts: {
       start: { dateTime: startDT, timeZone: 'Europe/Malta' },
       end:   { dateTime: endDT,   timeZone: 'Europe/Malta' },
       colorId: paid ? '2' : '11',  // 2=sage(paid), 11=tomato(pending)
-      attendees: [{ email, displayName: name, responseStatus: 'accepted' }],
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'email', minutes: 24 * 60 },  // 1 day before
+          { method: 'popup', minutes: 24 * 60 },  // 1 day before (popup)
+        ],
+      },
     },
   })
 }

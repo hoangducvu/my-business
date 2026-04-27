@@ -10,6 +10,15 @@ export default async function PortalPage() {
   const firstName = session.user?.name?.split(' ')[0] ?? session.user?.email ?? 'there'
   const isAdmin   = session.user?.role === 'admin'
 
+  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID ?? ''
+  const calendarId    = process.env.GOOGLE_CALENDAR_ID    ?? ''
+  const sheetsUrl     = spreadsheetId
+    ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+    : 'https://docs.google.com/spreadsheets'
+  const calendarUrl   = calendarId
+    ? `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(calendarId)}`
+    : 'https://calendar.google.com'
+
   return (
     <main style={{ minHeight: '100vh', background: '#FFF0F4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
       <div style={{ width: '100%', maxWidth: 500, background: '#fff', borderRadius: 20, boxShadow: '0 2px 24px rgba(123,26,56,.10)', overflow: 'hidden' }}>
@@ -48,7 +57,7 @@ export default async function PortalPage() {
 
             {isAdmin && (
               <>
-                <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener noreferrer"
+                <a href={sheetsUrl} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: '#FFF0F4', borderRadius: 14, textDecoration: 'none', border: '1.5px solid #F4BFCC' }}>
                   <span style={{ fontSize: 24 }}>📊</span>
                   <div>
@@ -56,7 +65,7 @@ export default async function PortalPage() {
                     <p style={{ margin: '2px 0 0', fontSize: 13, color: '#7B1A38' }}>View all submissions in Google Sheets</p>
                   </div>
                 </a>
-                <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer"
+                <a href={calendarUrl} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', background: '#FFF0F4', borderRadius: 14, textDecoration: 'none', border: '1.5px solid #F4BFCC' }}>
                   <span style={{ fontSize: 24 }}>📅</span>
                   <div>

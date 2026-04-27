@@ -18,7 +18,7 @@ const baloo = Baloo_2({
 export const metadata: Metadata = {
   title: "OddlyCraft Malta — Custom Phone Cases, Charms & More",
   description:
-    "Walk-in craft workshop in Malta. Customise your own phone case, Italian charm bracelet, pencil case, locket heart, or night lamp. No skills needed — just bring your vibe!",
+    "Walk-in craft workshop in Malta. Customise your own phone case, Italian charm bracelet, pencil case, locket heart, passport cover, bag charm, bead bracelet, or phone chain. No skills needed — just bring your vibe!",
 };
 
 export default function RootLayout({

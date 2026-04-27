@@ -14,16 +14,18 @@ export default function NavAuthButton() {
     return (
       <Link
         href="/login"
+        aria-label="Log in"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          padding: '8px 18px', borderRadius: '9999px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, height: 36, borderRadius: '9999px',
           border: '2px solid #7B1A38', color: '#7B1A38',
-          fontWeight: 900, fontSize: '13px', textDecoration: 'none',
-          background: 'white', whiteSpace: 'nowrap',
-          transition: 'all .15s',
+          textDecoration: 'none', background: 'transparent',
+          transition: 'all .15s', flexShrink: 0,
         }}
       >
-        🔑 Log In
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        </svg>
       </Link>
     )
   }
@@ -35,17 +37,17 @@ export default function NavAuthButton() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-label="Account menu"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          padding: '8px 16px', borderRadius: '9999px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, height: 36, borderRadius: '9999px',
           background: '#7B1A38', color: 'white',
-          fontWeight: 900, fontSize: '13px', border: 'none',
-          cursor: 'pointer', whiteSpace: 'nowrap',
+          border: 'none', cursor: 'pointer', flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: '16px' }}>👤</span>
-        {firstName}
-        <span style={{ fontSize: '10px', opacity: 0.8 }}>{open ? '▲' : '▼'}</span>
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        </svg>
       </button>
 
       {open && (

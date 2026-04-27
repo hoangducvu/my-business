@@ -4,6 +4,7 @@ import BookingSection from './BookingSection'
 import NewsletterForm from './NewsletterForm'
 import OddlyCraftLogo from './OddlyCraftLogo'
 import NavAuthButton from './NavAuthButton'
+import MobileNav from './MobileNav'
 
 export const metadata: Metadata = {
   title: 'OddlyCraft Malta — Customise Your Own Charms, Cases & More',
@@ -206,13 +207,13 @@ export default function HomePage() {
             </a>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <NavAuthButton />
             <a
               href="#book"
-              className="text-xs sm:text-sm"
+              className="hidden sm:inline-flex text-xs sm:text-sm"
               style={{
-                display: 'inline-flex', alignItems: 'center',
+                alignItems: 'center',
                 padding: '8px 14px', borderRadius: '9999px',
                 background: '#7B1A38', color: 'white',
                 fontWeight: 900,
@@ -222,12 +223,13 @@ export default function HomePage() {
             >
               Book
             </a>
+            <MobileNav />
           </div>
         </div>
       </nav>
 
       {/* ── HERO ── */}
-      <section className="relative overflow-hidden dots-bg py-16 sm:py-24 px-4" style={{ background: 'var(--blush)' }}>
+      <section className="relative overflow-hidden dots-bg pt-3 pb-10 sm:pt-10 sm:pb-20 px-4" style={{ background: 'var(--blush)' }}>
 
         {/* Floating stickers */}
         <div className="absolute top-12 left-6  text-4xl animate-float     pointer-events-none select-none" style={{animationDelay:'0s'}}>✨</div>
@@ -246,7 +248,7 @@ export default function HomePage() {
             </p>
 
             <h1
-              className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.1] mb-5"
+              className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.1] mb-4"
               style={{ fontFamily: 'var(--font-baloo), sans-serif', color: 'var(--maroon)' }}
             >
               make it.<br />
@@ -259,11 +261,11 @@ export default function HomePage() {
             </p>
 
             {/* Product pills */}
-            <div className="flex flex-wrap gap-2 mb-8">
+            <div className="flex flex-wrap gap-1.5 mb-6">
               {['📱 Phone Case', '🔗 Italian Charms', '✏️ Pencil Case', '💝 Locket Heart', '🛂 Passport Cover', '👜 Bag Charm', '📿 Bead Bracelet', '📎 Phone Chain'].map((p) => (
                 <span
                   key={p}
-                  className="px-3 py-1.5 rounded-full text-sm font-black border-2"
+                  className="px-2.5 py-1 rounded-full text-xs font-black border-2"
                   style={{ borderColor: 'var(--maroon)', color: 'var(--maroon)', background: 'var(--cream)' }}
                 >
                   {p}
@@ -271,7 +273,7 @@ export default function HomePage() {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <a
                 href="#locations"
                 className="inline-flex justify-center items-center px-8 py-4 font-black text-lg rounded-2xl shadow-lg transition-all text-white"
@@ -409,12 +411,12 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-5">
             {products.map((p) => (
               <a
                 key={p.id}
                 href="#book"
-                className="card-hover group block rounded-3xl p-6 text-center transition-all"
+                className="card-hover group block rounded-2xl p-3 sm:p-6 text-center transition-all"
                 style={{
                   background: p.cardBg,
                   border: `3px solid ${p.borderColor}`,
