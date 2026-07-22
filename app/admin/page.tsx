@@ -1,0 +1,361 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+
+// ─── Brand palette (matches the rest of the site) ────────────────────────────
+const MAROON = '#7B1A38'
+const BG     = '#FFF0F4'
+const CARD   = '#ffffff'
+const SOFT   = '#FDE8EF'
+const ACCENT = '#9B3A54'
+const BORDER = '#F0D8E0'
+const INK    = '#3D0E1E'
+
+interface Charm {
+  id: string
+  name: string
+  category: string
+  price: number
+  imageUrl: string
+  quantity: number
+}
+interface Lead {
+  id: string; name: string; email: string; phone: string; type: string
+  submittedAt: string; date: string; time: string; activity: string; partySize: string; location: string
+}
+interface Invoice {
+  invoiceId: string; name: string; email: string; amountCents: number; currency: string
+  description: string; status: string; paidAt: string; createdAt: string; leadId: string
+}
+
+type Tab = 'inventory' | 'categories' | 'bookings'
+
+const slug = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32) || 'charm'
+
+export default function AdminPage() {
+  const [authed, setAuthed] = useState<boolean | null>(null) // null = checking
+  const [password, setPassword] = useState('')
+  const [loginErr, setLoginErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState<Tab>('inventory')
+
+  const [charms, setCharms] = useState<Charm[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [msg, setMsg] = useState('')
+
+  // ─── Data loaders ──────────────────────────────────────────────────────────
+  const loadInventory = useCallback(async () => {
+    const res = await fetch('/api/admin/inventory')
+    if (res.status === 401) { setAuthed(false); return false }
+    const data = await res.json()
+    setCharms((data.charms ?? []).map((c: Charm) => ({ ...c, price: Number(c.price) || 0, quantity: Number(c.quantity) || 0 })))
+    setAuthed(true)
+    return true
+  }, [])
+
+  const loadCategories = useCallback(async () => {
+    const res = await fetch('/api/admin/categories')
+    if (res.ok) setCategories((await res.json()).categories ?? [])
+  }, [])
+
+  const loadBookings = useCallback(async () => {
+    const res = await fetch('/api/admin/bookings')
+    if (res.ok) {
+      const d = await res.json()
+      setLeads(d.leads ?? [])
+      setInvoices(d.invoices ?? [])
+    }
+  }, [])
+
+  useEffect(() => { loadInventory() }, [loadInventory])
+  useEffect(() => {
+    if (authed) { loadCategories(); loadBookings() }
+  }, [authed, loadCategories, loadBookings])
+
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
+
+  // ─── Auth ────────────────────────────────────────────────────────────────
+  async function login(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setLoginErr('')
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      if (res.ok) { setPassword(''); await loadInventory() }
+      else setLoginErr((await res.json().catch(() => ({}))).error ?? 'Login failed.')
+    } finally { setBusy(false) }
+  }
+
+  async function logout() {
+    await fetch('/api/admin/logout', { method: 'POST' })
+    setAuthed(false)
+  }
+
+  // ─── Inventory actions ─────────────────────────────────────────────────────
+  async function saveCharm(c: Charm) {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(c),
+      })
+      if (res.ok) { flash(`Saved ${c.name}`); await loadInventory() }
+      else flash((await res.json().catch(() => ({}))).error ?? 'Save failed')
+    } finally { setBusy(false) }
+  }
+
+  async function deleteCharm(id: string, name: string) {
+    if (!confirm(`Delete charm "${name}"? This cannot be undone.`)) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/inventory?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      if (res.ok) { flash(`Deleted ${name}`); await loadInventory() }
+    } finally { setBusy(false) }
+  }
+
+  async function addCategory(name: string) {
+    if (!name.trim()) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+      if (res.ok) { flash(`Added "${name}"`); await loadCategories() }
+    } finally { setBusy(false) }
+  }
+
+  async function deleteCategory(name: string) {
+    if (!confirm(`Delete category "${name}"?`)) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/categories?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
+      if (res.ok) { flash(`Deleted "${name}"`); await loadCategories() }
+    } finally { setBusy(false) }
+  }
+
+  // ─── Render: loading ───────────────────────────────────────────────────────
+  if (authed === null) {
+    return <Centered><p style={{ color: ACCENT }}>Loading…</p></Centered>
+  }
+
+  // ─── Render: login ─────────────────────────────────────────────────────────
+  if (!authed) {
+    return (
+      <Centered>
+        <form onSubmit={login} style={{ width: '100%', maxWidth: 380, background: CARD, borderRadius: 20, boxShadow: '0 2px 24px rgba(123,26,56,.12)', overflow: 'hidden' }}>
+          <div style={{ background: MAROON, padding: '28px 32px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 34 }}>🔐</p>
+            <h1 style={{ margin: '6px 0 0', color: '#fff', fontSize: 22, fontWeight: 900 }}>OddlyCraft Admin</h1>
+          </div>
+          <div style={{ padding: '28px 32px 32px' }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: ACCENT, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>Password</label>
+            <input
+              type="password" value={password} autoFocus
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1px solid ${BORDER}`, fontSize: 15, outline: 'none', boxSizing: 'border-box' }}
+            />
+            {loginErr && <p style={{ margin: '10px 0 0', color: '#C0392B', fontSize: 13 }}>{loginErr}</p>}
+            <button type="submit" disabled={busy || !password}
+              style={{ width: '100%', marginTop: 18, padding: '12px', background: busy || !password ? '#E0D0D4' : MAROON, color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: busy || !password ? 'not-allowed' : 'pointer' }}>
+              {busy ? 'Checking…' : 'Sign in'}
+            </button>
+          </div>
+        </form>
+      </Centered>
+    )
+  }
+
+  // ─── Render: dashboard ─────────────────────────────────────────────────────
+  return (
+    <main style={{ minHeight: '100vh', background: BG, padding: '0 0 60px' }}>
+      {/* Header */}
+      <header style={{ background: MAROON, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 900 }}>🎨 OddlyCraft Admin</h1>
+        <button onClick={logout} style={{ padding: '8px 16px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Sign out</button>
+      </header>
+
+      {/* Tabs */}
+      <nav style={{ display: 'flex', gap: 4, padding: '16px 24px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap' }}>
+        {(['inventory', 'categories', 'bookings'] as Tab[]).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            style={{ padding: '10px 18px', background: tab === t ? CARD : 'transparent', color: tab === t ? MAROON : ACCENT, border: 'none', borderRadius: '12px 12px 0 0', fontSize: 14, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
+            {t}
+          </button>
+        ))}
+      </nav>
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+        {msg && <div style={{ background: '#DFF5E1', color: '#1E6B2E', padding: '10px 16px', borderRadius: 10, margin: '12px 0', fontSize: 14, fontWeight: 600 }}>{msg}</div>}
+
+        <div style={{ background: CARD, borderRadius: '0 14px 14px 14px', padding: 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
+          {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} />}
+          {tab === 'categories' && <CategoriesTab categories={categories} onAdd={addCategory} onDelete={deleteCategory} busy={busy} />}
+          {tab === 'bookings'   && <BookingsTab leads={leads} invoices={invoices} onRefresh={loadBookings} />}
+        </div>
+      </div>
+    </main>
+  )
+}
+
+// ─── Inventory tab ─────────────────────────────────────────────────────────
+function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
+  charms: Charm[]; categories: string[]; onSave: (c: Charm) => void; onDelete: (id: string, name: string) => void; busy: boolean
+}) {
+  const [draft, setDraft] = useState<Record<string, Charm>>({})
+  const [nw, setNw] = useState({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' })
+
+  const edit = (c: Charm, patch: Partial<Charm>) =>
+    setDraft((d) => ({ ...d, [c.id]: { ...c, ...d[c.id], ...patch } }))
+  const val = (c: Charm): Charm => draft[c.id] ?? c
+  const cats = categories.length ? categories : ['Custom']
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 4px', color: INK, fontSize: 18 }}>Charm inventory <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({charms.length})</span></h2>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit any field then hit Save on that row.</p>
+
+      {/* Add new */}
+      <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+        <p style={{ margin: '0 0 10px', fontWeight: 800, color: MAROON, fontSize: 14 }}>➕ Add a charm</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input placeholder="Name" value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} style={inp(150)} />
+          <select value={nw.category || cats[0]} onChange={(e) => setNw({ ...nw, category: e.target.value })} style={inp(120)}>
+            {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <input type="number" step="0.50" min="0" placeholder="Price" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={inp(80)} />
+          <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={inp(70)} />
+          <input placeholder="Image URL (optional)" value={nw.imageUrl} onChange={(e) => setNw({ ...nw, imageUrl: e.target.value })} style={inp(180)} />
+          <button disabled={busy || !nw.name.trim()}
+            onClick={() => { onSave({ id: `${slug(nw.name)}${Math.random().toString(36).slice(2, 5)}`, name: nw.name.trim(), category: nw.category || cats[0], price: Number(nw.price) || 0, quantity: parseInt(nw.quantity) || 0, imageUrl: nw.imageUrl.trim() }); setNw({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' }) }}
+            style={btn(!busy && !!nw.name.trim())}>Add</button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', color: ACCENT }}>
+              <Th>Name</Th><Th>Category</Th><Th>Price €</Th><Th>Stock</Th><Th></Th>
+            </tr>
+          </thead>
+          <tbody>
+            {charms.map((c) => {
+              const v = val(c)
+              return (
+                <tr key={c.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <td style={td}><input value={v.name} onChange={(e) => edit(c, { name: e.target.value })} style={inp(140)} /></td>
+                  <td style={td}>
+                    <select value={v.category} onChange={(e) => edit(c, { category: e.target.value })} style={inp(120)}>
+                      {[...new Set([v.category, ...cats])].map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </td>
+                  <td style={td}><input type="number" step="0.50" min="0" value={v.price} onChange={(e) => edit(c, { price: Number(e.target.value) })} style={inp(75)} /></td>
+                  <td style={td}><input type="number" step="1" min="0" value={v.quantity} onChange={(e) => edit(c, { quantity: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                    <button disabled={busy} onClick={() => onSave(v)} style={btn(!busy, true)}>Save</button>
+                    <button disabled={busy} onClick={() => onDelete(c.id, c.name)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', marginLeft: 6 }}>Del</button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Categories tab ────────────────────────────────────────────────────────
+function CategoriesTab({ categories, onAdd, onDelete, busy }: {
+  categories: string[]; onAdd: (n: string) => void; onDelete: (n: string) => void; busy: boolean
+}) {
+  const [name, setName] = useState('')
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 16px', color: INK, fontSize: 18 }}>Categories <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({categories.length})</span></h2>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <input placeholder="New category name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(name); setName('') } }} style={inp(220)} />
+        <button disabled={busy || !name.trim()} onClick={() => { onAdd(name); setName('') }} style={btn(!busy && !!name.trim())}>Add</button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {categories.map((c) => (
+          <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: SOFT, borderRadius: 20, padding: '6px 8px 6px 14px', fontSize: 13, fontWeight: 600, color: INK }}>
+            {c}
+            <button disabled={busy} onClick={() => onDelete(c)} title="Delete" style={{ background: '#fff', color: '#C0392B', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', fontWeight: 800, lineHeight: 1 }}>×</button>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Bookings tab ──────────────────────────────────────────────────────────
+function BookingsTab({ leads, invoices, onRefresh }: { leads: Lead[]; invoices: Invoice[]; onRefresh: () => void }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Bookings & orders</h2>
+        <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
+      </div>
+
+      <h3 style={{ margin: '0 0 8px', color: ACCENT, fontSize: 14 }}>Leads / bookings ({leads.length})</h3>
+      <div style={{ overflowX: 'auto', marginBottom: 24 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
+          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>When</Th><Th>Name</Th><Th>Email</Th><Th>Type</Th><Th>Activity</Th><Th>Date</Th><Th>Time</Th><Th>Party</Th></tr></thead>
+          <tbody>
+            {leads.map((l) => (
+              <tr key={l.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                <td style={td}>{fmt(l.submittedAt)}</td><td style={td}>{l.name}</td><td style={td}>{l.email}</td>
+                <td style={td}>{l.type}</td><td style={td}>{l.activity}</td><td style={td}>{l.date}</td><td style={td}>{l.time}</td><td style={td}>{l.partySize}</td>
+              </tr>
+            ))}
+            {leads.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={8}>No bookings yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style={{ margin: '0 0 8px', color: ACCENT, fontSize: 14 }}>Invoices ({invoices.length})</h3>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 640 }}>
+          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Created</Th><Th>Name</Th><Th>Description</Th><Th>Amount</Th><Th>Status</Th></tr></thead>
+          <tbody>
+            {invoices.map((v) => (
+              <tr key={v.invoiceId} style={{ borderTop: `1px solid ${BORDER}` }}>
+                <td style={td}>{fmt(v.createdAt)}</td><td style={td}>{v.name}</td><td style={td}>{v.description}</td>
+                <td style={td}>{(v.amountCents / 100).toFixed(2)} {v.currency?.toUpperCase()}</td>
+                <td style={td}><span style={{ padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: 11.5, background: v.status === 'paid' ? '#DFF5E1' : '#FDECC8', color: v.status === 'paid' ? '#1E6B2E' : '#8A5A00' }}>{v.status || 'pending'}</span></td>
+              </tr>
+            ))}
+            {invoices.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={5}>No invoices yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Small helpers ─────────────────────────────────────────────────────────
+function Centered({ children }: { children: React.ReactNode }) {
+  return <main style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>{children}</main>
+}
+function Th({ children }: { children?: React.ReactNode }) {
+  return <th style={{ padding: '6px 8px', fontWeight: 700, fontSize: 12 }}>{children}</th>
+}
+const td: React.CSSProperties = { padding: '6px 8px', color: INK, verticalAlign: 'middle' }
+const inp = (w: number): React.CSSProperties => ({ width: w, maxWidth: '100%', padding: '8px 10px', borderRadius: 9, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', boxSizing: 'border-box' })
+const btn = (on: boolean, primary = false): React.CSSProperties => ({ padding: '8px 14px', background: on ? (primary ? MAROON : '#7B1A38') : '#E0D0D4', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
+function fmt(iso: string) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
