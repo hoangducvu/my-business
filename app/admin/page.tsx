@@ -19,16 +19,12 @@ interface Charm {
   imageUrl: string
   quantity: number
 }
-interface Lead {
-  id: string; name: string; email: string; phone: string; type: string
-  submittedAt: string; date: string; time: string; activity: string; partySize: string; location: string
-}
-interface Invoice {
-  invoiceId: string; name: string; email: string; amountCents: number; currency: string
-  description: string; status: string; paidAt: string; createdAt: string; leadId: string
+interface Order {
+  sessionId: string; email: string; metal: string; numLinks: string
+  charms: string; totalCents: number; paidAt: string
 }
 
-type Tab = 'inventory' | 'categories' | 'bookings'
+type Tab = 'inventory' | 'categories' | 'orders'
 
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32) || 'charm'
@@ -42,8 +38,7 @@ export default function AdminPage() {
 
   const [charms, setCharms] = useState<Charm[]>([])
   const [categories, setCategories] = useState<string[]>([])
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [msg, setMsg] = useState('')
 
   // ─── Data loaders ──────────────────────────────────────────────────────────
@@ -61,19 +56,15 @@ export default function AdminPage() {
     if (res.ok) setCategories((await res.json()).categories ?? [])
   }, [])
 
-  const loadBookings = useCallback(async () => {
-    const res = await fetch('/api/admin/bookings')
-    if (res.ok) {
-      const d = await res.json()
-      setLeads(d.leads ?? [])
-      setInvoices(d.invoices ?? [])
-    }
+  const loadOrders = useCallback(async () => {
+    const res = await fetch('/api/admin/orders')
+    if (res.ok) setOrders((await res.json()).orders ?? [])
   }, [])
 
   useEffect(() => { loadInventory() }, [loadInventory])
   useEffect(() => {
-    if (authed) { loadCategories(); loadBookings() }
-  }, [authed, loadCategories, loadBookings])
+    if (authed) { loadCategories(); loadOrders() }
+  }, [authed, loadCategories, loadOrders])
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
 
@@ -185,7 +176,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <nav style={{ display: 'flex', gap: 4, padding: '16px 24px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap' }}>
-        {(['inventory', 'categories', 'bookings'] as Tab[]).map((t) => (
+        {(['inventory', 'categories', 'orders'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: '10px 18px', background: tab === t ? CARD : 'transparent', color: tab === t ? MAROON : ACCENT, border: 'none', borderRadius: '12px 12px 0 0', fontSize: 14, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
             {t}
@@ -199,7 +190,7 @@ export default function AdminPage() {
         <div style={{ background: CARD, borderRadius: '0 14px 14px 14px', padding: 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
           {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} />}
           {tab === 'categories' && <CategoriesTab categories={categories} onAdd={addCategory} onDelete={deleteCategory} busy={busy} />}
-          {tab === 'bookings'   && <BookingsTab leads={leads} invoices={invoices} onRefresh={loadBookings} />}
+          {tab === 'orders'     && <OrdersTab orders={orders} onRefresh={loadOrders} />}
         </div>
       </div>
     </main>
@@ -299,44 +290,30 @@ function CategoriesTab({ categories, onAdd, onDelete, busy }: {
   )
 }
 
-// ─── Bookings tab ──────────────────────────────────────────────────────────
-function BookingsTab({ leads, invoices, onRefresh }: { leads: Lead[]; invoices: Invoice[]; onRefresh: () => void }) {
+// ─── Orders tab ────────────────────────────────────────────────────────────
+function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => void }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Bookings & orders</h2>
+        <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Charm orders <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({orders.length})</span></h2>
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
 
-      <h3 style={{ margin: '0 0 8px', color: ACCENT, fontSize: 14 }}>Leads / bookings ({leads.length})</h3>
-      <div style={{ overflowX: 'auto', marginBottom: 24 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
-          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>When</Th><Th>Name</Th><Th>Email</Th><Th>Type</Th><Th>Activity</Th><Th>Date</Th><Th>Time</Th><Th>Party</Th></tr></thead>
-          <tbody>
-            {leads.map((l) => (
-              <tr key={l.id} style={{ borderTop: `1px solid ${BORDER}` }}>
-                <td style={td}>{fmt(l.submittedAt)}</td><td style={td}>{l.name}</td><td style={td}>{l.email}</td>
-                <td style={td}>{l.type}</td><td style={td}>{l.activity}</td><td style={td}>{l.date}</td><td style={td}>{l.time}</td><td style={td}>{l.partySize}</td>
-              </tr>
-            ))}
-            {leads.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={8}>No bookings yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 style={{ margin: '0 0 8px', color: ACCENT, fontSize: 14 }}>Invoices ({invoices.length})</h3>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 640 }}>
-          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Created</Th><Th>Name</Th><Th>Description</Th><Th>Amount</Th><Th>Status</Th></tr></thead>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
+          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Paid</Th><Th>Email</Th><Th>Metal</Th><Th>Links</Th><Th>Charms</Th><Th>Total</Th></tr></thead>
           <tbody>
-            {invoices.map((v) => (
-              <tr key={v.invoiceId} style={{ borderTop: `1px solid ${BORDER}` }}>
-                <td style={td}>{fmt(v.createdAt)}</td><td style={td}>{v.name}</td><td style={td}>{v.description}</td>
-                <td style={td}>{(v.amountCents / 100).toFixed(2)} {v.currency?.toUpperCase()}</td>
-                <td style={td}><span style={{ padding: '2px 10px', borderRadius: 20, fontWeight: 700, fontSize: 11.5, background: v.status === 'paid' ? '#DFF5E1' : '#FDECC8', color: v.status === 'paid' ? '#1E6B2E' : '#8A5A00' }}>{v.status || 'pending'}</span></td>
+            {orders.map((o) => (
+              <tr key={o.sessionId} style={{ borderTop: `1px solid ${BORDER}` }}>
+                <td style={td}>{fmt(o.paidAt)}</td>
+                <td style={td}>{o.email}</td>
+                <td style={td}>{o.metal}</td>
+                <td style={td}>{o.numLinks}</td>
+                <td style={{ ...td, maxWidth: 280 }}>{o.charms}</td>
+                <td style={td}>€{(o.totalCents / 100).toFixed(2)}</td>
               </tr>
             ))}
-            {invoices.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={5}>No invoices yet.</td></tr>}
+            {orders.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={6}>No orders yet.</td></tr>}
           </tbody>
         </table>
       </div>

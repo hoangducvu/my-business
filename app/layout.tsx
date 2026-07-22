@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Nunito, Baloo_2 } from "next/font/google";
 import "./globals.css";
-import Providers from "./Providers";
 
 const nunito = Nunito({
   variable: "--font-nunito",
@@ -16,9 +15,9 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: "OddlyCraft Malta — Custom Phone Cases, Charms & More",
+  title: "OddlyCraft Malta — Design Your Own Italian Charm Bracelet",
   description:
-    "Walk-in craft workshop in Malta. Customise your own phone case, Italian charm bracelet, pencil case, locket heart, passport cover, bag charm, bead bracelet, or phone chain. No skills needed — just bring your vibe!",
+    "Build your own Italian charm bracelet online. Pick your metal, choose your links, and add charms that tell your story — handmade in Malta, shipped to your door.",
 };
 
 export default function RootLayout({
@@ -28,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${nunito.variable} ${baloo.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

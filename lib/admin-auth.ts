@@ -10,8 +10,9 @@ export const ADMIN_COOKIE = 'oc_admin'
 export const ADMIN_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days (seconds)
 
 function signingKey(): string {
-  // Reuse the existing NextAuth secret as the HMAC key.
-  return process.env.NEXTAUTH_SECRET || ''
+  // Derive the cookie-signing key from the admin password. Changing the password
+  // therefore invalidates existing sessions, which is the behaviour we want.
+  return process.env.ADMIN_PASSWORD || ''
 }
 
 function sign(value: string): string {
