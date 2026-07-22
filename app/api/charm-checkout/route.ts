@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { getCharmCatalog } from '@/lib/sheets-inventory'
 
 /* ─── Stripe client ─────────────────────────────────────────── */
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Invalid request body.' }, { status: 400 })
   }
 
-  const { metal, numLinks, charms, totalCents } = body
+  const { metal, numLinks, charms } = body
 
   // Basic validation
   if (!metal || !numLinks || !Array.isArray(charms)) {
@@ -91,15 +92,27 @@ export async function POST(request: Request) {
     })
   }
 
-  // 3. Individual charms (grouped by id for cleaner invoice)
+  // 3. Individual charms — resolve authoritative prices from the catalog so the
+  //    client cannot tamper with per-charm prices sent in the request body.
+  let priceById: Record<string, { price: number; name: string }>
+  try {
+    const catalog = await getCharmCatalog()
+    priceById = Object.fromEntries(catalog.map((c) => [c.id, { price: c.price, name: c.name }]))
+  } catch (err) {
+    console.error('[/api/charm-checkout] catalog lookup failed:', err)
+    return NextResponse.json({ message: 'Could not verify charm prices. Please try again.' }, { status: 502 })
+  }
+
   const grouped: Record<string, { name: string; price: number; qty: number }> = {}
   for (const charm of charms) {
-    if (grouped[charm.id]) {
-      grouped[charm.id].qty++
-    } else {
-      grouped[charm.id] = { name: charm.name, price: charm.price, qty: 1 }
+    const known = priceById[charm.id]
+    if (!known) {
+      return NextResponse.json({ message: `Unknown charm: ${charm.id}` }, { status: 400 })
     }
+    if (grouped[charm.id]) grouped[charm.id].qty++
+    else grouped[charm.id] = { name: known.name, price: known.price, qty: 1 }
   }
+
   for (const { name, price, qty } of Object.values(grouped)) {
     lineItems.push({
       price_data: {
@@ -111,10 +124,19 @@ export async function POST(request: Request) {
     })
   }
 
-  // Build order summary for metadata
+  // Build order summary + machine-readable id:qty list (for the webhook) for metadata
   const charmSummary = Object.values(grouped)
     .map(({ name, qty }) => `${name}${qty > 1 ? ` ×${qty}` : ''}`)
     .join(', ')
+  const charmQtyMeta = Object.entries(grouped)
+    .map(([id, g]) => `${id}:${g.qty}`)
+    .join(',')
+
+  // Authoritative total (base + metal surcharge + catalog-priced charms)
+  const authTotalCents =
+    basePriceCents +
+    (surcharge > 0 ? Math.round(surcharge * 100) : 0) +
+    Object.values(grouped).reduce((sum, g) => sum + Math.round(g.price * 100) * g.qty, 0)
 
   // Create Stripe Checkout Session
   let session: Stripe.Checkout.Session
@@ -128,7 +150,8 @@ export async function POST(request: Request) {
         metal,
         num_links: String(numLinks),
         charms: charmSummary.slice(0, 500), // Stripe metadata max 500 chars per key
-        total_cents: String(totalCents),
+        charm_qty: charmQtyMeta.slice(0, 500), // id:qty list — used by the webhook to decrement stock
+        total_cents: String(authTotalCents),
       },
       success_url: `${origin}/charm-builder?payment=success`,
       cancel_url: `${origin}/charm-builder?payment=cancelled`,

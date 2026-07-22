@@ -521,7 +521,6 @@ function CharmBuilderInner() {
   const [payStatus, setPayStatus]   = useState<'success' | 'cancelled' | null>(null)
   const [isMobile, setIsMobile]     = useState(false)
   const [mobileTab, setMobileTab]   = useState<'palette' | 'builder' | 'basket'>('builder')
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
   const touchFromSlot = useRef<number | null>(null)
   const braceletRef = useRef<HTMLDivElement>(null)
   const slotsRef = useRef<(Charm | null)[]>([])
@@ -560,16 +559,11 @@ function CharmBuilderInner() {
     } catch {}
   }
 
-  const adjustInventory = async (id: string, delta: number) => {
-    setInventory(prev => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 100) + delta) }))
-    try {
-      await fetch('/api/charm-inventory', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, delta }),
-      })
-    } catch {}
-  }
+  // Availability = real sheet stock minus what's currently placed on the bracelet.
+  // Building never mutates the sheet; real stock is only decremented on a paid
+  // order (in the Stripe webhook), so abandoned builds can't leak stock.
+  const placedCount = (id: string) => slots.reduce((n, c) => n + (c?.id === id ? 1 : 0), 0)
+  const available   = (id: string) => Math.max(0, (inventory[id] ?? 100) - placedCount(id))
 
   useEffect(() => {
     fetchCatalog()
@@ -669,25 +663,19 @@ function CharmBuilderInner() {
 
   const tapToAdd = (charm: Charm) => {
     if (!isMobile) return
-    const qty = inventory[charm.id] ?? 100
-    if (qty <= 0) return
-    const target = selectedSlot !== null ? selectedSlot : slots.findIndex(s => s === null)
+    if (available(charm.id) <= 0) return
+    const target = slots.findIndex(s => s === null)
     if (target === -1) return
     setSlots(prev => {
       const n = [...prev]
-      const displaced = n[target]
       n[target] = charm
-      if (displaced) adjustInventory(displaced.id, +1)
       return n
     })
-    adjustInventory(charm.id, -1)
-    setSelectedSlot(null)
     setMobileTab('builder')
   }
 
   const onDragStartPalette = (charm: Charm) => {
-    const qty = inventory[charm.id] ?? 100
-    if (qty <= 0) return
+    if (available(charm.id) <= 0) return
     setDragState({ charm, fromSlot: null })
   }
   const onDragStartSlot = (charm: Charm, i: number) => setDragState({ charm, fromSlot: i })
@@ -702,10 +690,7 @@ function CharmBuilderInner() {
       if (fromSlot !== null) {
         next[targetIdx] = charm; next[fromSlot] = prev[targetIdx]
       } else {
-        const displaced = prev[targetIdx]
         next[targetIdx] = charm
-        adjustInventory(charm.id, -1)
-        if (displaced) adjustInventory(displaced.id, +1)
       }
       return next
     })
@@ -715,18 +700,13 @@ function CharmBuilderInner() {
   const removeSlot = (i: number) => {
     setSlots(p => {
       const n = [...p]
-      const removed = n[i]
       n[i] = null
-      if (removed) adjustInventory(removed.id, +1)
       return n
     })
   }
 
   const clearAll = () => {
-    setSlots(prev => {
-      prev.forEach(c => { if (c) adjustInventory(c.id, +1) })
-      return Array(numLinks).fill(null)
-    })
+    setSlots(Array(numLinks).fill(null))
   }
 
   const placed     = slots.filter(Boolean) as Charm[]
@@ -838,7 +818,7 @@ function CharmBuilderInner() {
           </select>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(4,1fr)' : 'repeat(3,1fr)', gap: 6, maxHeight: isMobile ? 'calc(100vh - 220px)' : 460, overflowY: 'auto', paddingRight: 2 }}>
             {visibleCharms.map(charm => {
-              const qty        = inventory[charm.id] ?? 100
+              const qty        = available(charm.id)
               const outOfStock = qty <= 0
               return (
                 <div

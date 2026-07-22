@@ -10,6 +10,7 @@ import {
   ownerCharmNotifHtml,
 } from '@/lib/email-templates'
 import { createBookingCalendarEvent } from '@/lib/google-calendar'
+import { updateInventoryQty } from '@/lib/sheets-inventory'
 
 const OWNER_EMAIL = 'vuhoangduc1701@gmail.com'
 
@@ -92,6 +93,18 @@ async function handleCharmOrder(
     })
   } catch (err) {
     console.error('[/api/stripe-webhook] CharmOrders sheet write error:', err)
+  }
+
+  // Decrement real stock now that payment is confirmed (charm_qty is "id:qty,id:qty").
+  const charmQty = meta.charm_qty ?? ''
+  if (charmQty) {
+    await Promise.allSettled(
+      charmQty.split(',').map((pair) => {
+        const [id, q] = pair.split(':')
+        const n = parseInt(q ?? '0', 10)
+        return id && n > 0 ? updateInventoryQty(id.trim(), -n) : Promise.resolve(null)
+      })
+    )
   }
 
   if (customerEmail) {
