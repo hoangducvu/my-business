@@ -951,27 +951,18 @@ function CharmBuilderInner() {
                     onDrop={() => onDrop(i)}
                     onDragLeave={() => setDragOver(null)}
                     data-slot={i}
-                    onClick={isMobile && !touchGhost ? () => {
-                      if (selectedSlot !== null && selectedSlot !== i) {
-                        setSlots(prev => { const n = [...prev]; [n[i], n[selectedSlot]] = [n[selectedSlot], n[i]]; return n })
-                        setSelectedSlot(null)
-                      } else {
-                        const next = selectedSlot === i ? null : i
-                        setSelectedSlot(next)
-                        if (next !== null) setMobileTab('palette')
-                      }
-                    } : undefined}
+                    onClick={undefined}
                     style={{
                       width: isMobile ? 44 : 52, height: isMobile ? 44 : 52,
                       flexShrink: 0,
                       position: 'relative',
                       userSelect: 'none',
-                      touchAction: isMobile ? 'none' : 'auto',
+                      touchAction: isMobile ? (charm ? 'none' : 'pan-x') : 'auto',
                       cursor: charm ? (isMobile ? 'pointer' : 'grab') : 'default',
                       transition: 'transform 0.1s',
                       transform: dragOver === i ? 'scale(1.08)' : 'scale(1)',
                       zIndex: dragOver === i ? 4 : 1,
-                      outline: isMobile && selectedSlot === i ? `3px solid ${R}` : dragOver === i ? `2.5px solid ${R}` : 'none',
+                      outline: dragOver === i ? `2.5px solid ${R}` : 'none',
                       outlineOffset: '0px',
                     }}
                   >
