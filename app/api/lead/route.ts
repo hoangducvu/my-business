@@ -266,6 +266,8 @@ export async function POST(request: Request) {
         quantity: 1,
       }],
       customer_email: email,
+      // Let Stripe email the customer a payment receipt directly (no Resend needed).
+      payment_intent_data: { receipt_email: email },
       metadata: {
         invoice_id:    invoiceId,
         lead_id:       leadId,
