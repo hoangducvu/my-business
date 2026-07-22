@@ -233,10 +233,10 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
 
       {/* Table */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
           <thead>
             <tr style={{ textAlign: 'left', color: ACCENT }}>
-              <Th>Name</Th><Th>Category</Th><Th>Price €</Th><Th>Stock</Th><Th></Th>
+              <Th>Image</Th><Th>Name</Th><Th>Category</Th><Th>Price €</Th><Th>Stock</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -244,6 +244,30 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
               const v = val(c)
               return (
                 <tr key={c.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <td style={td}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#F5EEF1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {v.imageUrl
+                          ? <img src={v.imageUrl} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ fontSize: 16, color: '#C9AEB8' }}>🔗</span>}
+                      </div>
+                      <label style={{ ...btn(!busy), padding: '6px 8px', fontSize: 11, display: 'inline-block', cursor: busy ? 'not-allowed' : 'pointer' }}>
+                        {v.imageUrl ? 'Change' : 'Upload'}
+                        <input type="file" accept="image/*" disabled={busy} style={{ display: 'none' }}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            e.target.value = ''
+                            if (!file) return
+                            try { edit(c, { imageUrl: await fileToResizedDataUrl(file) }) }
+                            catch { alert('Could not read that image.') }
+                          }} />
+                      </label>
+                      {v.imageUrl && (
+                        <button disabled={busy} onClick={() => edit(c, { imageUrl: '' })} title="Remove image"
+                          style={{ background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', borderRadius: 6, width: 22, height: 22, cursor: 'pointer', fontWeight: 800, lineHeight: 1, flexShrink: 0 }}>×</button>
+                      )}
+                    </div>
+                  </td>
                   <td style={td}><input value={v.name} onChange={(e) => edit(c, { name: e.target.value })} style={inp(140)} /></td>
                   <td style={td}>
                     <select value={v.category} onChange={(e) => edit(c, { category: e.target.value })} style={inp(120)}>
@@ -322,6 +346,35 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
 }
 
 // ─── Small helpers ─────────────────────────────────────────────────────────
+// Downscale + compress an uploaded image to a small JPEG data URL so it fits in a
+// Google Sheets cell (~50k char limit) and loads fast on the storefront.
+function fileToResizedDataUrl(file: File, max = 240): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => {
+      const img = new window.Image()
+      img.onerror = reject
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height))
+        const w = Math.max(1, Math.round(img.width * scale))
+        const h = Math.max(1, Math.round(img.height * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject(new Error('no canvas context'))
+        ctx.fillStyle = '#ffffff'          // flatten any transparency to white
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 function Centered({ children }: { children: React.ReactNode }) {
   return <main style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>{children}</main>
 }
