@@ -2,9 +2,26 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment setup
 
 ```bash
+cp .env.example .env.local
+```
+
+Open `.env.local` and fill in your own API keys:
+
+- **ARCJET_KEY** — from [app.arcjet.com](https://app.arcjet.com)
+- **GOOGLE_SPREADSHEET_ID / GOOGLE_CALENDAR_ID** — from your Google Sheet/Calendar URLs
+- **GOOGLE_SERVICE_ACCOUNT_JSON** — paste the full JSON from your Google Cloud service account as a single line
+- **RESEND_API_KEY** — from [resend.com](https://resend.com)
+- **NEXTAUTH_SECRET** — run: `openssl rand -base64 32`
+- **STRIPE_SECRET_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY** — from [Stripe dashboard](https://dashboard.stripe.com)
+- **STRIPE_WEBHOOK_SECRET** — run: `stripe listen --print-secret`
+
+### 2. Install & run
+
+```bash
+npm install
 npm run dev
 # or
 yarn dev
