@@ -50,23 +50,43 @@ export async function createBookingCalendarEvent(opts: {
 
   const calendar = getCalendarClient()
 
-  await calendar.events.insert({
-    calendarId: process.env.GOOGLE_CALENDAR_ID!,
-    sendUpdates: 'none',
-    requestBody: {
-      summary,
-      description,
-      location: locLabel,
-      start: { dateTime: startDT, timeZone: 'Europe/Malta' },
-      end:   { dateTime: endDT,   timeZone: 'Europe/Malta' },
-      colorId: paid ? '2' : '11',  // 2=sage(paid), 11=tomato(pending)
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'email', minutes: 24 * 60 },  // 1 day before
-          { method: 'popup', minutes: 24 * 60 },  // 1 day before (popup)
-        ],
+  const reminders = {
+    useDefault: false,
+    overrides: [
+      { method: 'email', minutes: 24 * 60 },  // 1 day before
+      { method: 'popup', minutes: 24 * 60 },  // 1 day before (popup)
+    ],
+  }
+
+  const baseEvent = {
+    summary,
+    description,
+    location: locLabel,
+    start: { dateTime: startDT, timeZone: 'Europe/Malta' },
+    end:   { dateTime: endDT,   timeZone: 'Europe/Malta' },
+    colorId: paid ? '2' : '11',  // 2=sage(paid), 11=tomato(pending)
+    reminders,
+  }
+
+  // Try to invite the customer as an attendee so they get a calendar event too.
+  // Google emails them an invitation (RSVP) they can add to their own calendar.
+  try {
+    await calendar.events.insert({
+      calendarId:  process.env.GOOGLE_CALENDAR_ID!,
+      sendUpdates: 'all',  // notify the customer of the invite
+      requestBody: {
+        ...baseEvent,
+        attendees: email ? [{ email, displayName: name, responseStatus: 'accepted' }] : undefined,
       },
-    },
-  })
+    })
+  } catch (err) {
+    // Service accounts can't invite attendees without Domain-Wide Delegation.
+    // Fall back to creating the owner's event only, so the booking is never lost.
+    console.warn('[calendar] Attendee invite failed — creating owner-only event. Enable Domain-Wide Delegation to invite customers:', err)
+    await calendar.events.insert({
+      calendarId:  process.env.GOOGLE_CALENDAR_ID!,
+      sendUpdates: 'none',
+      requestBody: baseEvent,
+    })
+  }
 }
