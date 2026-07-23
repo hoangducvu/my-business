@@ -1,5 +1,5 @@
 import { google } from 'googleapis'
-import { getActivityLabel, getLocationLabel } from '@/lib/email-templates'
+import { getActivityLabel, getLocationLabel } from '@/lib/labels'
 
 function getCalendarClient() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)

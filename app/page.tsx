@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import BookingSection from './BookingSection'
-import NewsletterForm from './NewsletterForm'
 import OddlyCraftLogo from './OddlyCraftLogo'
 import MobileNav from './MobileNav'
 
@@ -661,23 +660,6 @@ export default function HomePage() {
               </details>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── NEWSLETTER ── */}
-      <section id="newsletter" className="py-20 px-4" style={{ background: 'linear-gradient(135deg, var(--maroon) 0%, var(--maroon-mid) 100%)' }}>
-        <div className="max-w-xl mx-auto text-center">
-          <div className="text-5xl mb-4">🌸</div>
-          <h2
-            className="text-4xl sm:text-5xl font-black text-white mb-3"
-            style={{ fontFamily: 'var(--font-baloo), sans-serif' }}
-          >
-            join the fun! ♡
-          </h2>
-          <p className="mb-8 font-semibold" style={{ color: 'var(--rose)' }}>
-            Sign up for exclusive discounts, new charm drops, and all the quirky updates from our workshop.
-          </p>
-          <NewsletterForm />
         </div>
       </section>
 

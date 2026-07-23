@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { getActivityLabel, getLocationLabel } from '@/lib/labels'
 
 // ─── Brand palette (matches the rest of the site) ────────────────────────────
 const MAROON = '#7B1A38'
@@ -23,8 +24,17 @@ interface Order {
   sessionId: string; email: string; metal: string; numLinks: string
   charms: string; totalCents: number; paidAt: string
 }
+interface Booking {
+  id: string; name: string; email: string; phone: string; activity: string
+  submittedAt: string; date: string; time: string; partySize: number
+  location: string; status: string; details: string
+}
+interface Phonecase {
+  brand: string; model: string; plaza: number; mercury: number
+  nhaNgoc: number; alibaba: number; total: number
+}
 
-type Tab = 'inventory' | 'categories' | 'orders'
+type Tab = 'inventory' | 'categories' | 'orders' | 'bookings' | 'phonecases'
 
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32) || 'charm'
@@ -34,11 +44,13 @@ export default function AdminPage() {
   const [password, setPassword] = useState('')
   const [loginErr, setLoginErr] = useState('')
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<Tab>('inventory')
+  const [tab, setTab] = useState<Tab>('bookings')
 
   const [charms, setCharms] = useState<Charm[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [orders, setOrders] = useState<Order[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [phonecases, setPhonecases] = useState<Phonecase[]>([])
   const [msg, setMsg] = useState('')
 
   // ─── Data loaders ──────────────────────────────────────────────────────────
@@ -61,10 +73,20 @@ export default function AdminPage() {
     if (res.ok) setOrders((await res.json()).orders ?? [])
   }, [])
 
+  const loadBookings = useCallback(async () => {
+    const res = await fetch('/api/admin/bookings')
+    if (res.ok) setBookings((await res.json()).bookings ?? [])
+  }, [])
+
+  const loadPhonecases = useCallback(async () => {
+    const res = await fetch('/api/admin/phonecases')
+    if (res.ok) setPhonecases((await res.json()).phonecases ?? [])
+  }, [])
+
   useEffect(() => { loadInventory() }, [loadInventory])
   useEffect(() => {
-    if (authed) { loadCategories(); loadOrders() }
-  }, [authed, loadCategories, loadOrders])
+    if (authed) { loadCategories(); loadOrders(); loadBookings(); loadPhonecases() }
+  }, [authed, loadCategories, loadOrders, loadBookings, loadPhonecases])
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
 
@@ -108,6 +130,29 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/inventory?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (res.ok) { flash(`Deleted ${name}`); await loadInventory() }
+    } finally { setBusy(false) }
+  }
+
+  // ─── Phone case actions ────────────────────────────────────────────────────
+  async function savePhonecase(p: Phonecase) {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/phonecases', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p),
+      })
+      if (res.ok) { flash(`Saved ${p.model}`); await loadPhonecases() }
+      else flash((await res.json().catch(() => ({}))).error ?? 'Save failed')
+    } finally { setBusy(false) }
+  }
+
+  async function deletePhonecaseItem(brand: string, model: string) {
+    if (!confirm(`Delete "${brand} ${model}"?`)) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/phonecases?brand=${encodeURIComponent(brand)}&model=${encodeURIComponent(model)}`, { method: 'DELETE' })
+      if (res.ok) { flash(`Deleted ${model}`); await loadPhonecases() }
     } finally { setBusy(false) }
   }
 
@@ -176,10 +221,10 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <nav style={{ display: 'flex', gap: 4, padding: '16px 24px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap' }}>
-        {(['inventory', 'categories', 'orders'] as Tab[]).map((t) => (
+        {(['bookings', 'phonecases', 'inventory', 'categories', 'orders'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: '10px 18px', background: tab === t ? CARD : 'transparent', color: tab === t ? MAROON : ACCENT, border: 'none', borderRadius: '12px 12px 0 0', fontSize: 14, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
-            {t}
+            {t === 'phonecases' ? 'Phone Cases' : t}
           </button>
         ))}
       </nav>
@@ -188,6 +233,8 @@ export default function AdminPage() {
         {msg && <div style={{ background: '#DFF5E1', color: '#1E6B2E', padding: '10px 16px', borderRadius: 10, margin: '12px 0', fontSize: 14, fontWeight: 600 }}>{msg}</div>}
 
         <div style={{ background: CARD, borderRadius: '0 14px 14px 14px', padding: 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
+          {tab === 'bookings'   && <BookingsTab bookings={bookings} onRefresh={loadBookings} />}
+          {tab === 'phonecases' && <PhonecasesTab phonecases={phonecases} onSave={savePhonecase} onDelete={deletePhonecaseItem} onRefresh={loadPhonecases} busy={busy} />}
           {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} />}
           {tab === 'categories' && <CategoriesTab categories={categories} onAdd={addCategory} onDelete={deleteCategory} busy={busy} />}
           {tab === 'orders'     && <OrdersTab orders={orders} onRefresh={loadOrders} />}
@@ -338,6 +385,151 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
               </tr>
             ))}
             {orders.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={6}>No orders yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bookings tab ──────────────────────────────────────────────────────────
+function BookingsTab({ bookings, onRefresh }: { bookings: Booking[]; onRefresh: () => void }) {
+  const STATUS: Record<string, { bg: string; fg: string; label: string }> = {
+    paid:      { bg: '#E8F9F2', fg: '#1A5C3A', label: '✅ Paid' },
+    confirmed: { bg: '#E8F0FF', fg: '#1A3A7B', label: '✔ Confirmed' },
+    pending:   { bg: '#FFF6E5', fg: '#7B5E00', label: '⏳ Pending' },
+  }
+  const badge = (s: string) => STATUS[s.toLowerCase()] ?? { bg: SOFT, fg: ACCENT, label: s || '—' }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Bookings <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({bookings.length})</span></h2>
+        <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 820 }}>
+          <thead><tr style={{ textAlign: 'left', color: ACCENT }}>
+            <Th>When</Th><Th>Activity</Th><Th>Name</Th><Th>Contact</Th><Th>Party</Th><Th>Location</Th><Th>Status</Th>
+          </tr></thead>
+          <tbody>
+            {bookings.map((b) => (
+              <tr key={b.id} style={{ borderTop: `1px solid ${BORDER}` }}>
+                <td style={td}>{b.date} <span style={{ color: ACCENT }}>{b.time}</span></td>
+                <td style={td}>
+                  {getActivityLabel(b.activity)}
+                  {b.details && <div style={{ color: ACCENT, fontSize: 12 }}>📱 {b.details}</div>}
+                </td>
+                <td style={td}>{b.name || '—'}</td>
+                <td style={{ ...td, maxWidth: 220 }}>
+                  <div>{b.email}</div>
+                  {b.phone && <div style={{ color: ACCENT }}>{b.phone}</div>}
+                </td>
+                <td style={td}>{b.partySize}</td>
+                <td style={td}>{getLocationLabel(b.location)}</td>
+                <td style={td}>
+                  {(() => { const m = badge(b.status); return (
+                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: m.bg, color: m.fg }}>{m.label}</span>
+                  ) })()}
+                </td>
+              </tr>
+            ))}
+            {bookings.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={7}>No bookings yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Phone cases tab ───────────────────────────────────────────────────────
+function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
+  phonecases: Phonecase[]; onSave: (p: Phonecase) => void; onDelete: (brand: string, model: string) => void; onRefresh: () => void; busy: boolean
+}) {
+  const [draft, setDraft] = useState<Record<string, Phonecase>>({})
+  const [q, setQ] = useState('')
+  const [brandFilter, setBrandFilter] = useState('All')
+  const [nw, setNw] = useState({ brand: 'iPhone', model: '', plaza: '0', mercury: '0', nhaNgoc: '0', alibaba: '0' })
+
+  const keyOf = (p: { brand: string; model: string }) => `${p.brand}||${p.model}`
+  const edit = (p: Phonecase, patch: Partial<Phonecase>) =>
+    setDraft((d) => ({ ...d, [keyOf(p)]: { ...p, ...d[keyOf(p)], ...patch } }))
+  const val = (p: Phonecase): Phonecase => draft[keyOf(p)] ?? p
+  const sum = (p: { plaza: number; mercury: number; nhaNgoc: number; alibaba: number }) =>
+    (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.nhaNgoc) || 0) + (Number(p.alibaba) || 0)
+
+  const brands = ['All', ...Array.from(new Set(phonecases.map((p) => p.brand)))]
+  const knownBrands = Array.from(new Set(phonecases.map((p) => p.brand)))
+  const brandOpts = knownBrands.length ? knownBrands : ['iPhone', 'Samsung', 'Redmi']
+  const filtered = phonecases.filter((p) =>
+    (brandFilter === 'All' || p.brand === brandFilter) &&
+    (!q || p.model.toLowerCase().includes(q.toLowerCase()))
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 8 }}>
+        <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Phone case stock <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({phonecases.length} models)</span></h2>
+        <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
+      </div>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit stock per source then hit Save on that row. Total is calculated automatically. Plaza/Mercury auto-decrease when a phone case is booked & paid.</p>
+
+      {/* Add new */}
+      <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+        <p style={{ margin: '0 0 10px', fontWeight: 800, color: MAROON, fontSize: 14 }}>➕ Add a model</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={nw.brand} onChange={(e) => setNw({ ...nw, brand: e.target.value })} style={inp(110)}>
+            {brandOpts.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <input placeholder="Model" value={nw.model} onChange={(e) => setNw({ ...nw, model: e.target.value })} style={inp(150)} />
+          <input type="number" min="0" placeholder="Plaza" value={nw.plaza} onChange={(e) => setNw({ ...nw, plaza: e.target.value })} style={inp(75)} />
+          <input type="number" min="0" placeholder="Mercury" value={nw.mercury} onChange={(e) => setNw({ ...nw, mercury: e.target.value })} style={inp(80)} />
+          <input type="number" min="0" placeholder="Nhà Ngọc" value={nw.nhaNgoc} onChange={(e) => setNw({ ...nw, nhaNgoc: e.target.value })} style={inp(85)} />
+          <input type="number" min="0" placeholder="Alibaba" value={nw.alibaba} onChange={(e) => setNw({ ...nw, alibaba: e.target.value })} style={inp(80)} />
+          <button disabled={busy || !nw.model.trim()}
+            onClick={() => { onSave({ brand: nw.brand, model: nw.model.trim(), plaza: +nw.plaza || 0, mercury: +nw.mercury || 0, nhaNgoc: +nw.nhaNgoc || 0, alibaba: +nw.alibaba || 0, total: 0 }); setNw({ brand: nw.brand, model: '', plaza: '0', mercury: '0', nhaNgoc: '0', alibaba: '0' }) }}
+            style={btn(!busy && !!nw.model.trim())}>Add</button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={inp(130)}>
+          {brands.map((b) => <option key={b} value={b}>{b === 'All' ? 'All brands' : b}</option>)}
+        </select>
+        <input placeholder="Search model…" value={q} onChange={(e) => setQ(e.target.value)} style={inp(180)} />
+        <span style={{ alignSelf: 'center', color: ACCENT, fontSize: 13 }}>{filtered.length} shown</span>
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
+          <thead>
+            <tr style={{ textAlign: 'left', color: ACCENT }}>
+              <Th>Brand</Th><Th>Model</Th><Th>Plaza</Th><Th>Mercury</Th><Th>Nhà Ngọc</Th><Th>Alibaba</Th><Th>Total</Th><Th></Th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => {
+              const v = val(p)
+              return (
+                <tr key={keyOf(p)} style={{ borderTop: `1px solid ${BORDER}` }}>
+                  <td style={td}>{p.brand}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{p.model}</td>
+                  <td style={td}><input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.nhaNgoc} onChange={(e) => edit(p, { nhaNgoc: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={{ ...td, fontWeight: 800 }}>{sum(v)}</td>
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                    <button disabled={busy} onClick={() => onSave(v)} style={btn(!busy, true)}>Save</button>
+                    <button disabled={busy} onClick={() => onDelete(p.brand, p.model)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', marginLeft: 6 }}>Del</button>
+                  </td>
+                </tr>
+              )
+            })}
+            {filtered.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={8}>No models match.</td></tr>}
           </tbody>
         </table>
       </div>

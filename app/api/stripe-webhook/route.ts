@@ -3,6 +3,8 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { createBookingCalendarEvent } from '@/lib/google-calendar'
 import { updateInventoryQty } from '@/lib/sheets-inventory'
+import { markBookingPaid } from '@/lib/sheets-bookings'
+import { deductStock } from '@/lib/sheets-phonecases'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-04-22.dahlia',
@@ -16,8 +18,6 @@ function getSheetsClient() {
   })
   return google.sheets({ version: 'v4', auth })
 }
-
-export const config = { api: { bodyParser: false } }
 
 export async function POST(request: Request) {
   const sig     = request.headers.get('stripe-signature') ?? ''
@@ -44,13 +44,13 @@ export async function POST(request: Request) {
     return handleCharmOrder(session, meta, paid_at)
   }
 
-  const invoice_id = meta.invoice_id?.trim()
-  if (!invoice_id) {
-    console.warn('[/api/stripe-webhook] No invoice_id or product_type in metadata:', session.id)
+  const booking_id = meta.booking_id?.trim()
+  if (!booking_id) {
+    console.warn('[/api/stripe-webhook] No booking_id or product_type in metadata:', session.id)
     return NextResponse.json({ received: true })
   }
 
-  return handleBookingPayment(session, meta, invoice_id, paid_at)
+  return handleBookingPayment(session, meta, booking_id, paid_at)
 }
 
 // ─── Charm-bracelet order: record + decrement stock (Stripe emails the receipt) ─
@@ -95,62 +95,29 @@ async function handleCharmOrder(
   return NextResponse.json({ received: true, type: 'charm_order', session_id: session.id })
 }
 
-// ─── Booking / invoice payment: mark paid in Sheets + add to calendar ──────────
+// ─── Booking payment: mark the booking paid + add to calendar ──────────────────
 async function handleBookingPayment(
   session:    Stripe.Checkout.Session,
   meta:       Record<string, string>,
-  invoice_id: string,
+  booking_id: string,
   paid_at:    string,
 ) {
-  let rowIndex:   number | undefined
-  let invoiceRow: string[] | undefined
-
   try {
-    const sheets = getSheetsClient()
-    const res    = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
-      range:         'Invoices!A:J',
-    })
-    const rows     = res.data.values ?? []
-    const dataRows = rows.slice(1)
-    const idx      = dataRows.findIndex((row) => row[0]?.toString().trim() === invoice_id)
-    if (idx !== -1) {
-      rowIndex   = idx + 2
-      invoiceRow = dataRows[idx]
-    }
+    await markBookingPaid(booking_id)
   } catch (err) {
-    console.error('[/api/stripe-webhook] Sheets read error:', err)
-    return NextResponse.json({ message: 'Sheets read failed.' }, { status: 502 })
+    console.error('[/api/stripe-webhook] Failed to mark booking paid:', err)
+    return NextResponse.json({ message: 'Booking update failed.' }, { status: 502 })
   }
 
-  if (rowIndex === undefined || !invoiceRow) {
-    console.warn('[/api/stripe-webhook] invoice_id not found:', invoice_id)
-    return NextResponse.json({ received: true, warning: 'invoice_id not found' })
-  }
-
-  try {
-    const sheets = getSheetsClient()
-    await sheets.spreadsheets.values.update({
-      spreadsheetId:    process.env.GOOGLE_SPREADSHEET_ID!,
-      range:            `Invoices!G${rowIndex}:H${rowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody:      { values: [['paid', paid_at]] },
-    })
-  } catch (err) {
-    console.error('[/api/stripe-webhook] Sheets write error:', err)
-    return NextResponse.json({ message: 'Sheets write failed.' }, { status: 502 })
-  }
-
-  const customerEmail = invoiceRow[2]?.toString() || session.customer_email || ''
-  const customerName  = invoiceRow[1]?.toString() || meta.customer_name || ''
-
-  const activity  = meta.activity   ?? ''
-  const location  = meta.location   ?? ''
-  const date      = meta.date       ?? ''
-  const time      = meta.time       ?? ''
-  const phone     = meta.phone      ?? ''
-  const partySize = parseInt(meta.party_size ?? '1', 10)
-  const isBooking = !!(activity && location && date && time)
+  const customerEmail = session.customer_email ?? session.customer_details?.email ?? ''
+  const customerName  = meta.customer_name ?? ''
+  const activity      = meta.activity ?? ''
+  const location      = meta.location ?? ''
+  const date          = meta.date     ?? ''
+  const time          = meta.time     ?? ''
+  const phone         = meta.phone    ?? ''
+  const partySize     = parseInt(meta.party_size ?? '1', 10)
+  const isBooking     = !!(activity && location && date && time)
 
   if (isBooking) {
     // Create the calendar event now that payment is confirmed
@@ -158,8 +125,14 @@ async function handleBookingPayment(
       .catch((err) => console.error('[/api/stripe-webhook] Calendar event error:', err))
   }
 
-  console.log('[/api/stripe-webhook] Invoice', invoice_id, 'marked paid at', paid_at)
-  return NextResponse.json({ received: true, invoice_id, paid_at })
+  // Deduct phone-case stock from the shop the booking is for (Plaza/Mercury).
+  if (activity === 'phonecase' && meta.phone_model && (location === 'plaza' || location === 'mercury')) {
+    await deductStock(meta.phone_brand ?? '', meta.phone_model, location, partySize)
+      .catch((err) => console.error('[/api/stripe-webhook] Phone-case stock deduct error:', err))
+  }
+
+  console.log('[/api/stripe-webhook] Booking', booking_id, 'marked paid at', paid_at)
+  return NextResponse.json({ received: true, booking_id, paid_at })
 }
 
 async function ensureCharmOrdersSheet() {

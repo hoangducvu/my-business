@@ -62,27 +62,29 @@ async function run() {
   });
   console.log('✓ Availability sheet populated');
 
-  // 4. Check / update Leads header
-  const leadsHeader = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: 'Leads!A1:J1',
-  });
-  const existing = leadsHeader.data.values?.[0] ?? [];
-  console.log('Leads current header:', existing);
-
-  if (existing.length < 10) {
-    await sheets.spreadsheets.values.update({
+  // 4. Create Bookings tab if missing (auto-created at runtime too, see lib/sheets-bookings.ts)
+  if (!sheetNames.includes('Bookings')) {
+    await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Leads!A1:J1',
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [['id', 'name', 'email', 'phone', 'type', 'submittedAt', 'date', 'time', 'activity', 'partySize']],
-      },
+      requestBody: { requests: [{ addSheet: { properties: { title: 'Bookings' } } }] },
     });
-    console.log('✓ Leads header extended to 10 columns');
+    console.log('✓ Created Bookings sheet');
   } else {
-    console.log('Leads header already has 10+ columns');
+    console.log('Bookings sheet already exists');
   }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: 'Bookings!A1:L1',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [['id', 'name', 'email', 'phone', 'activity', 'submittedAt', 'date', 'time', 'partySize', 'location', 'status', 'details']],
+    },
+  });
+  console.log('✓ Bookings header set');
+
+  // Note: the Phonecase_Inventory tab is created + seeded automatically at runtime
+  // (see lib/sheets-phonecases.ts) the first time /admin Phone Cases is opened.
 }
 
 run().catch(err => { console.error(err); process.exit(1); });

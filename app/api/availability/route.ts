@@ -1,5 +1,5 @@
-import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
+import { getBookings } from '@/lib/sheets-bookings'
 
 // ── Shop schedule ──────────────────────────────────────────────────────────
 // JS day-of-week: 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
@@ -50,60 +50,40 @@ export async function GET(request: Request) {
 
   const slotsForDay = SCHEDULE[location]
 
-  try {
-    // Read booked slots from Leads sheet (type=booking, column K=location)
-    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    })
-    const sheets    = google.sheets({ version: 'v4', auth })
-    const sheetsRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
-      range:         'Leads!A2:K',
-    })
-
-    // Build set of booked "date|time" keys for this location
-    const booked = new Set<string>()
-    for (const row of sheetsRes.data.values ?? []) {
-      const rowType     = row[4]?.toString().trim()
-      const rowDate     = row[6]?.toString().trim()
-      const rowTime     = row[7]?.toString().trim()
-      const rowLocation = row[10]?.toString().trim().toLowerCase()
-      if (rowType === 'booking' && rowDate && rowTime && rowLocation === location) {
-        booked.add(`${rowDate}|${rowTime}`)
-      }
+  // Build set of booked "date|time" keys for this location. getBookings()
+  // returns [] on any read error, so we still serve dates (all slots free).
+  const bookings = await getBookings()
+  const booked   = new Set<string>()
+  for (const b of bookings) {
+    if (b.date && b.time && b.location.toLowerCase() === location) {
+      booked.add(`${b.date}|${b.time}`)
     }
-
-    // Generate next 21 days
-    const dates: AvailabilityDate[] = []
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-
-    for (let i = 0; i < 21; i++) {
-      const d    = new Date(today.getTime() + i * 86400000)
-      const dow  = d.getUTCDay()
-      const id   = d.toISOString().slice(0, 10)
-      const hours = slotsForDay(dow)
-      if (!hours) continue
-
-      const allSlots = hours.map(padHour)
-      const available = allSlots.filter((t) => !booked.has(`${id}|${t}`))
-
-      dates.push({
-        id,
-        ...formatDate(id),
-        slots:      available,
-        totalSlots: allSlots.length,
-      })
-    }
-
-    return NextResponse.json({ dates }, {
-      headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' },
-    })
-
-  } catch (err) {
-    console.error('[/api/availability] Error:', err)
-    return NextResponse.json({ error: 'Failed to load availability' }, { status: 502 })
   }
+
+  // Generate next 21 days
+  const dates: AvailabilityDate[] = []
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+
+  for (let i = 0; i < 21; i++) {
+    const d     = new Date(today.getTime() + i * 86400000)
+    const dow   = d.getUTCDay()
+    const id    = d.toISOString().slice(0, 10)
+    const hours = slotsForDay(dow)
+    if (!hours) continue
+
+    const allSlots  = hours.map(padHour)
+    const available = allSlots.filter((t) => !booked.has(`${id}|${t}`))
+
+    dates.push({
+      id,
+      ...formatDate(id),
+      slots:      available,
+      totalSlots: allSlots.length,
+    })
+  }
+
+  return NextResponse.json({ dates }, {
+    headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' },
+  })
 }

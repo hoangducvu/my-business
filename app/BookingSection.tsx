@@ -98,6 +98,8 @@ export default function BookingSection() {
   const [showForm,         setShowForm]         = useState(false)
   const [formStatus,       setFormStatus]       = useState<FormStatus>('idle')
   const [formMessage,      setFormMessage]      = useState('')
+  const [phoneModels,      setPhoneModels]      = useState<{ brand: string; model: string; stock: number }[]>([])
+  const [phoneKey,         setPhoneKey]         = useState('')   // "brand||model"
 
   // Fetch availability when location changes
   useEffect(() => {
@@ -119,6 +121,16 @@ export default function BookingSection() {
       .finally(() => setAvailLoading(false))
   }, [selectedLocation])
 
+  // Fetch phone models (with per-shop stock) when Phone Case is picked
+  useEffect(() => {
+    if (selectedActivity !== 'phonecase' || !selectedLocation) return
+    setPhoneKey('')
+    fetch(`/api/phonecase-models?location=${selectedLocation}`)
+      .then((r) => r.json())
+      .then((data) => setPhoneModels(data.models ?? []))
+      .catch(() => setPhoneModels([]))
+  }, [selectedActivity, selectedLocation])
+
   const dateObj        = dates.find((d) => d.id === selectedDate)
 
   // Filter out past time slots when the selected date is today
@@ -137,7 +149,9 @@ export default function BookingSection() {
   const activity       = visibleActivities.find((a) => a.id === selectedActivity)
   const total          = activity && activity.price > 0 ? activity.price * partySize : null
   const hasPricing     = total !== null
-  const canProceed     = selectedLocation && selectedDate && selectedTime && selectedActivity
+  const needsModel     = selectedActivity === 'phonecase'
+  const canProceed     = selectedLocation && selectedDate && selectedTime && selectedActivity && (!needsModel || phoneKey)
+  const phoneBrands    = Array.from(new Set(phoneModels.map((m) => m.brand)))
   const isLargeGroup   = partySize >= 6
   const locInfo        = selectedLocation ? LOCATION_INFO[selectedLocation] : null
 
@@ -156,10 +170,11 @@ export default function BookingSection() {
     const email = isLoggedIn ? sessionEmail : (fd.get('email')?.toString().trim() ?? '')
     const phone = isLoggedIn ? sessionPhone : (fd.get('phone')?.toString().trim() ?? '')
 
-    const body = { type: 'booking', name, email, phone, date: selectedDate, time: selectedTime, activity: selectedActivity, partySize, location: selectedLocation }
+    const [phoneBrand, phoneModel] = phoneKey ? phoneKey.split('||') : ['', '']
+    const body = { name, email, phone, date: selectedDate, time: selectedTime, activity: selectedActivity, partySize, location: selectedLocation, phoneBrand, phoneModel }
 
     try {
-      const res  = await fetch('/api/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res  = await fetch('/api/book', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
 
       if (!res.ok) {
@@ -367,6 +382,39 @@ export default function BookingSection() {
                 )
               })}
             </div>
+
+            {/* Phone model picker — only for Phone Case */}
+            {selectedActivity === 'phonecase' && (
+              <div className="mt-5">
+                <label htmlFor="phone-model" className="block text-sm font-black mb-1" style={{ color: 'var(--maroon)' }}>
+                  Your Phone Model <span aria-hidden="true">*</span>
+                </label>
+                {phoneModels.length === 0 ? (
+                  <p className="text-sm font-semibold animate-pulse" style={{ color: 'var(--maroon-mid)' }}>Loading models…</p>
+                ) : (
+                  <select
+                    id="phone-model" value={phoneKey}
+                    onChange={(e) => setPhoneKey(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border-2 outline-none transition text-sm bg-white cursor-pointer"
+                    style={{ borderColor: 'var(--rose)', color: 'var(--maroon)' }}
+                  >
+                    <option value="">Select your phone model…</option>
+                    {phoneBrands.map((brand) => (
+                      <optgroup key={brand} label={brand}>
+                        {phoneModels.filter((m) => m.brand === brand).map((m) => (
+                          <option key={`${m.brand}||${m.model}`} value={`${m.brand}||${m.model}`} disabled={m.stock <= 0}>
+                            {m.model}{m.stock <= 0 ? ' — out of stock' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                )}
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--maroon-mid)' }}>
+                  Don&apos;t see your model? Pick the closest and mention it on the day ♡
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ── STEP 5: PARTY SIZE ── */}
@@ -419,6 +467,9 @@ export default function BookingSection() {
                     <div><span className="font-black">📅 Date:</span> {dateObj?.display} ({dateObj?.day})</div>
                     <div><span className="font-black">🕐 Time:</span> {selectedTime}</div>
                     <div><span className="font-black">🎨 Activity:</span> {activity?.name}</div>
+                    {selectedActivity === 'phonecase' && phoneKey && (
+                      <div><span className="font-black">📱 Model:</span> {phoneKey.split('||')[1]}</div>
+                    )}
                     <div><span className="font-black">👥 People:</span> {partySize}</div>
                   </div>
                   {total !== null && (
