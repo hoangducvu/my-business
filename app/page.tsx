@@ -47,7 +47,7 @@ export default function HomePage() {
 
       {/* ── NAV ── */}
       <nav className="sticky top-0 z-50" style={{ background: '#FEFBE3', borderBottom: '1px solid rgba(0,92,255,0.10)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-32 flex items-center justify-between gap-2 sm:gap-4">
 
           {/* Left: Shop dropdown (desktop) + hamburger (mobile) */}
           <div className="flex-1 flex items-center justify-start">
@@ -62,7 +62,7 @@ export default function HomePage() {
             <span
               role="img"
               aria-label="OddlyCraft"
-              className="block h-10 sm:h-14"
+              className="block h-14 sm:h-20"
               style={{
                 width: 'auto', aspectRatio: '773 / 164',
                 backgroundColor: '#005CFF',
@@ -224,16 +224,18 @@ export default function HomePage() {
       <BookingSection />
 
       {/* ── FOOTER ── */}
-      <footer className="pt-16 pb-8 px-5 sm:px-10" style={{ background: '#FFEA6D', color: '#005CFF' }}>
-        <div className="max-w-7xl mx-auto">
+      <footer className="pt-16 pb-8" style={{ background: '#FFEA6D', color: '#005CFF' }}>
+        <div className="w-full px-4 sm:px-6">
 
-          {/* Big serif tagline */}
+          {/* Big serif tagline — one line, thin, stretched full width */}
           <h2
-            className="mb-16 leading-[0.95] tracking-tight"
+            className="mb-14 whitespace-nowrap"
             style={{
               fontFamily: 'var(--font-serif), Georgia, serif',
               color: '#005CFF',
-              fontSize: 'clamp(2.75rem, 9vw, 8rem)',
+              fontWeight: 300,
+              lineHeight: 1,
+              fontSize: 'clamp(1rem, 6.6vw, 7.5rem)',
             }}
           >
             Thank you for your curiosity.
@@ -247,12 +249,12 @@ export default function HomePage() {
               <span
                 role="img"
                 aria-label="OddlyCraft"
-                className="block h-16 sm:h-20"
+                className="block h-20 sm:h-28"
                 style={{
-                  width: 'auto', aspectRatio: '773 / 164',
+                  width: 'auto', aspectRatio: '527 / 333',
                   backgroundColor: '#005CFF',
-                  WebkitMaskImage: 'url(/logo-transparent.png)',
-                  maskImage: 'url(/logo-transparent.png)',
+                  WebkitMaskImage: 'url(/logo-stacked.png)',
+                  maskImage: 'url(/logo-stacked.png)',
                   WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
                   WebkitMaskPosition: 'left center', maskPosition: 'left center',
                   WebkitMaskSize: 'contain', maskSize: 'contain',
@@ -313,20 +315,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Wavy divider */}
-          <svg
-            className="w-full mb-6"
-            height="18"
-            preserveAspectRatio="xMinYMid meet"
-            aria-hidden="true"
-          >
-            <defs>
-              <pattern id="footer-wave" width="40" height="18" patternUnits="userSpaceOnUse">
-                <path d="M0 9 Q 10 -1 20 9 T 40 9" stroke="#005CFF" strokeWidth="2.5" fill="none" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="18" fill="url(#footer-wave)" />
-          </svg>
+          {/* Wavy divider — animated scroll (left → right) */}
+          <div className="wave-scroll w-full mb-6" aria-hidden="true" />
 
           {/* Bottom bar: policies + socials */}
           <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">

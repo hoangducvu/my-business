@@ -95,3 +95,20 @@ body {
   height: 48px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 48'%3E%3Cpath fill='%23FFF0F4' d='M0,24 C360,48 1080,0 1440,24 L1440,0 L0,0 Z'/%3E%3C/svg%3E") no-repeat center/cover;
 }
+
+/* ── Animated scrolling wave (footer divider) ── */
+@keyframes wave-scroll {
+  from { background-position: 0 50%; }
+  to   { background-position: 40px 50%; }
+}
+.wave-scroll {
+  height: 18px;
+  background-image: url("/wave.svg");
+  background-repeat: repeat-x;
+  background-position: 0 50%;
+  background-size: 40px 18px;
+  animation: wave-scroll 1.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wave-scroll { animation: none; }
+}
