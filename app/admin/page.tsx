@@ -4,6 +4,18 @@ import { useEffect, useState, useCallback } from 'react'
 import { getActivityLabel, getLocationLabel } from '@/lib/labels'
 import { DEFAULT_CHARMS } from '@/app/charm-builder/charms'
 
+// Switches table layouts to stacked cards on phones so nothing needs sideways scrolling.
+function useIsMobile(bp = 768) {
+  const [m, setM] = useState(false)
+  useEffect(() => {
+    const check = () => setM(window.innerWidth < bp)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [bp])
+  return m
+}
+
 // emoji/bg fallback for charms with no uploaded image (built-in charms only)
 const CHARM_FACE = Object.fromEntries(DEFAULT_CHARMS.map((c) => [c.id, { emoji: c.emoji, bg: c.bg }]))
 
@@ -49,6 +61,7 @@ const slug = (s: string) =>
 export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null) // null = checking
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loginErr, setLoginErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [tab, setTab] = useState<Tab>('bookings')
@@ -201,11 +214,20 @@ export default function AdminPage() {
           </div>
           <div style={{ padding: '28px 32px 32px' }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: ACCENT, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>Password</label>
-            <input
-              type="password" value={password} autoFocus
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: `1px solid ${BORDER}`, fontSize: 15, outline: 'none', boxSizing: 'border-box' }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'} value={password} autoFocus
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ width: '100%', padding: '12px 44px 12px 14px', borderRadius: 12, border: `1px solid ${BORDER}`, fontSize: 15, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <button
+                type="button" onClick={() => setShowPw((s) => !s)}
+                aria-label={showPw ? 'Hide password' : 'Show password'}
+                title={showPw ? 'Hide password' : 'Show password'}
+                style={{ position: 'absolute', top: 0, right: 0, height: '100%', width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: ACCENT, padding: 0 }}>
+                {showPw ? '🙈' : '👁️'}
+              </button>
+            </div>
             {loginErr && <p style={{ margin: '10px 0 0', color: '#C0392B', fontSize: 13 }}>{loginErr}</p>}
             <button type="submit" disabled={busy || !password}
               style={{ width: '100%', marginTop: 18, padding: '12px', background: busy || !password ? '#E0D0D4' : MAROON, color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: busy || !password ? 'not-allowed' : 'pointer' }}>
@@ -218,33 +240,61 @@ export default function AdminPage() {
   }
 
   // ─── Render: dashboard ─────────────────────────────────────────────────────
+  return <Dashboard
+    tab={tab} setTab={setTab} logout={logout} msg={msg}
+    bookings={bookings} loadBookings={loadBookings}
+    phonecases={phonecases} savePhonecase={savePhonecase} deletePhonecaseItem={deletePhonecaseItem} loadPhonecases={loadPhonecases}
+    charms={charms} categories={categories} saveCharm={saveCharm} deleteCharm={deleteCharm}
+    addCategory={addCategory} deleteCategory={deleteCategory}
+    orders={orders} loadOrders={loadOrders} busy={busy}
+  />
+}
+
+// Dashboard is split out so it can use the useIsMobile hook (hooks can't run
+// after the early auth `return`s in AdminPage).
+function Dashboard({
+  tab, setTab, logout, msg,
+  bookings, loadBookings,
+  phonecases, savePhonecase, deletePhonecaseItem, loadPhonecases,
+  charms, categories, saveCharm, deleteCharm,
+  addCategory, deleteCategory,
+  orders, loadOrders, busy,
+}: {
+  tab: Tab; setTab: (t: Tab) => void; logout: () => void; msg: string
+  bookings: Booking[]; loadBookings: () => void
+  phonecases: Phonecase[]; savePhonecase: (p: Phonecase) => Promise<void> | void; deletePhonecaseItem: (brand: string, model: string) => void; loadPhonecases: () => void
+  charms: Charm[]; categories: string[]; saveCharm: (c: Charm) => void; deleteCharm: (id: string, name: string) => void
+  addCategory: (n: string) => void; deleteCategory: (n: string) => void
+  orders: Order[]; loadOrders: () => void; busy: boolean
+}) {
+  const isMobile = useIsMobile()
   return (
     <main style={{ minHeight: '100vh', background: BG, padding: '0 0 60px' }}>
       {/* Header */}
-      <header style={{ background: MAROON, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 900 }}>🎨 OddlyCraft Admin</h1>
+      <header style={{ background: MAROON, padding: isMobile ? '16px 14px' : '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ margin: 0, color: '#fff', fontSize: isMobile ? 17 : 20, fontWeight: 900 }}>🎨 OddlyCraft Admin</h1>
         <button onClick={logout} style={{ padding: '8px 16px', background: 'rgba(255,255,255,.15)', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Sign out</button>
       </header>
 
-      {/* Tabs */}
-      <nav style={{ display: 'flex', gap: 4, padding: '16px 24px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap' }}>
+      {/* Tabs — wrap onto multiple rows on mobile so nothing scrolls sideways */}
+      <nav style={{ display: 'flex', gap: isMobile ? 6 : 4, padding: isMobile ? '12px 12px 0' : '16px 24px 0', maxWidth: 1100, margin: '0 auto', flexWrap: 'wrap' }}>
         {(['bookings', 'phonecases', 'inventory', 'categories', 'orders'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            style={{ padding: '10px 18px', background: tab === t ? CARD : 'transparent', color: tab === t ? MAROON : ACCENT, border: 'none', borderRadius: '12px 12px 0 0', fontSize: 14, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
+            style={{ whiteSpace: 'nowrap', padding: isMobile ? '9px 14px' : '10px 18px', background: tab === t ? CARD : 'transparent', color: tab === t ? MAROON : ACCENT, border: isMobile && tab !== t ? `1px solid ${BORDER}` : 'none', borderRadius: isMobile ? 10 : '12px 12px 0 0', fontSize: 14, fontWeight: 800, cursor: 'pointer', textTransform: 'capitalize' }}>
             {t === 'phonecases' ? 'Phone Cases' : t}
           </button>
         ))}
       </nav>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '0 12px' : '0 24px' }}>
         {msg && <div style={{ background: '#DFF5E1', color: '#1E6B2E', padding: '10px 16px', borderRadius: 10, margin: '12px 0', fontSize: 14, fontWeight: 600 }}>{msg}</div>}
 
-        <div style={{ background: CARD, borderRadius: '0 14px 14px 14px', padding: 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
-          {tab === 'bookings'   && <BookingsTab bookings={bookings} onRefresh={loadBookings} />}
-          {tab === 'phonecases' && <PhonecasesTab phonecases={phonecases} onSave={savePhonecase} onDelete={deletePhonecaseItem} onRefresh={loadPhonecases} busy={busy} />}
-          {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} />}
+        <div style={{ background: CARD, borderRadius: isMobile ? 14 : '0 14px 14px 14px', marginTop: isMobile ? 10 : 0, padding: isMobile ? 14 : 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
+          {tab === 'bookings'   && <BookingsTab bookings={bookings} onRefresh={loadBookings} isMobile={isMobile} />}
+          {tab === 'phonecases' && <PhonecasesTab phonecases={phonecases} onSave={savePhonecase} onDelete={deletePhonecaseItem} onRefresh={loadPhonecases} busy={busy} isMobile={isMobile} />}
+          {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} isMobile={isMobile} />}
           {tab === 'categories' && <CategoriesTab categories={categories} onAdd={addCategory} onDelete={deleteCategory} busy={busy} />}
-          {tab === 'orders'     && <OrdersTab orders={orders} onRefresh={loadOrders} />}
+          {tab === 'orders'     && <OrdersTab orders={orders} onRefresh={loadOrders} isMobile={isMobile} />}
         </div>
       </div>
     </main>
@@ -252,8 +302,8 @@ export default function AdminPage() {
 }
 
 // ─── Inventory tab ─────────────────────────────────────────────────────────
-function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
-  charms: Charm[]; categories: string[]; onSave: (c: Charm) => void; onDelete: (id: string, name: string) => void; busy: boolean
+function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: {
+  charms: Charm[]; categories: string[]; onSave: (c: Charm) => void; onDelete: (id: string, name: string) => void; busy: boolean; isMobile: boolean
 }) {
   const [draft, setDraft] = useState<Record<string, Charm>>({})
   const [nw, setNw] = useState({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' })
@@ -262,22 +312,32 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
     setDraft((d) => ({ ...d, [c.id]: { ...c, ...d[c.id], ...patch } }))
   const val = (c: Charm): Charm => draft[c.id] ?? c
   const cats = categories.length ? categories : ['Custom']
+  const fieldW = (w: number) => (isMobile ? inpFull : inp(w))
 
   return (
     <div>
       <h2 style={{ margin: '0 0 4px', color: INK, fontSize: 18 }}>Charm inventory <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({charms.length})</span></h2>
-      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit any field then hit Save on that row.</p>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit any field then hit Save.</p>
 
       {/* Add new */}
       <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 20 }}>
         <p style={{ margin: '0 0 10px', fontWeight: 800, color: MAROON, fontSize: 14 }}>➕ Add a charm</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input placeholder="Name" value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} style={inp(150)} />
-          <select value={nw.category || cats[0]} onChange={(e) => setNw({ ...nw, category: e.target.value })} style={inp(120)}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8, flexWrap: 'wrap', alignItems: isMobile ? 'stretch' : 'center' }}>
+          <input placeholder="Name" value={nw.name} onChange={(e) => setNw({ ...nw, name: e.target.value })} style={fieldW(150)} />
+          <select value={nw.category || cats[0]} onChange={(e) => setNw({ ...nw, category: e.target.value })} style={fieldW(120)}>
             {cats.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input type="number" step="0.50" min="0" placeholder="Price" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={inp(80)} />
-          <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={inp(70)} />
+          {isMobile ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="number" step="0.50" min="0" placeholder="Price €" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={{ ...inpFull, flex: 1 }} />
+              <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={{ ...inpFull, flex: 1 }} />
+            </div>
+          ) : (
+            <>
+              <input type="number" step="0.50" min="0" placeholder="Price" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={inp(80)} />
+              <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={inp(70)} />
+            </>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#fff', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {nw.imageUrl
@@ -302,11 +362,70 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
           </div>
           <button disabled={busy || !nw.name.trim()}
             onClick={() => { onSave({ id: `${slug(nw.name)}${Math.random().toString(36).slice(2, 5)}`, name: nw.name.trim(), category: nw.category || cats[0], price: Number(nw.price) || 0, quantity: parseInt(nw.quantity) || 0, imageUrl: nw.imageUrl.trim() }); setNw({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' }) }}
-            style={btn(!busy && !!nw.name.trim())}>Add</button>
+            style={{ ...btn(!busy && !!nw.name.trim()), ...(isMobile ? { width: '100%', padding: '12px' } : {}) }}>Add</button>
         </div>
       </div>
 
-      {/* Table */}
+      {/* Mobile: stacked cards so every field is reachable without sideways scrolling */}
+      {isMobile ? (
+        <div>
+          {charms.map((c) => {
+            const v = val(c)
+            return (
+              <div key={c.id} style={mcard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#F5EEF1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {v.imageUrl
+                      ? <img src={v.imageUrl} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 20, color: '#C9AEB8' }}>🔗</span>}
+                  </div>
+                  <label style={{ ...btn(!busy), display: 'inline-block', cursor: busy ? 'not-allowed' : 'pointer' }}>
+                    {v.imageUrl ? 'Change image' : 'Upload image'}
+                    <input type="file" accept="image/*" disabled={busy} style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        if (!file) return
+                        try { edit(c, { imageUrl: await fileToResizedDataUrl(file) }) }
+                        catch { alert('Could not read that image.') }
+                      }} />
+                  </label>
+                  {v.imageUrl && (
+                    <button disabled={busy} onClick={() => edit(c, { imageUrl: '' })} title="Remove image"
+                      style={{ background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontWeight: 800, lineHeight: 1, flexShrink: 0 }}>×</button>
+                  )}
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={mlabel}>Name</label>
+                  <input value={v.name} onChange={(e) => edit(c, { name: e.target.value })} style={inpFull} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={mlabel}>Category</label>
+                  <select value={v.category} onChange={(e) => edit(c, { category: e.target.value })} style={inpFull}>
+                    {[...new Set([v.category, ...cats])].map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={mlabel}>Price €</label>
+                    <input type="number" step="0.50" min="0" value={v.price} onChange={(e) => edit(c, { price: Number(e.target.value) })} style={inpFull} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={mlabel}>Stock</label>
+                    <input type="number" step="1" min="0" value={v.quantity} onChange={(e) => edit(c, { quantity: parseInt(e.target.value) || 0 })} style={inpFull} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button disabled={busy} onClick={() => onSave(v)} style={{ ...btn(!busy, true), flex: 1, padding: '12px' }}>Save</button>
+                  <button disabled={busy} onClick={() => onDelete(c.id, c.name)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', padding: '12px 18px' }}>Del</button>
+                </div>
+              </div>
+            )
+          })}
+          {charms.length === 0 && <p style={{ color: ACCENT, fontSize: 13 }}>No charms yet.</p>}
+        </div>
+      ) : (
+      /* Desktop table */
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
           <thead>
@@ -361,6 +480,7 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
@@ -390,7 +510,7 @@ function CategoriesTab({ categories, onAdd, onDelete, busy }: {
 }
 
 // ─── Orders tab ────────────────────────────────────────────────────────────
-function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => void }) {
+function OrdersTab({ orders, onRefresh, isMobile }: { orders: Order[]; onRefresh: () => void; isMobile: boolean }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -399,6 +519,24 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
       </div>
 
       <p style={{ margin: '0 0 12px', color: ACCENT, fontSize: 13 }}>Each order shows the assembled bracelet — exactly as the customer built it — plus a charm pick-list, so it&apos;s easy to fulfil.</p>
+
+      {isMobile ? (
+        <div>
+          {orders.map((o) => (
+            <div key={o.sessionId} style={mcard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: INK }}>{fmt(o.paidAt)}</span>
+                <span style={{ fontSize: 17, fontWeight: 900, color: MAROON }}>€{(o.totalCents / 100).toFixed(2)}</span>
+              </div>
+              <div style={{ fontSize: 13, color: INK, marginBottom: 2, wordBreak: 'break-all' }}>{o.email}</div>
+              <div style={{ fontSize: 12, color: ACCENT, marginBottom: 10, textTransform: 'capitalize' }}>{o.metal} · {o.numLinks} links</div>
+              {o.layout && o.layout.length > 0 && <BraceletStrip metal={o.metal} layout={o.layout} />}
+              <CharmItems items={o.items} fallback={o.charms} />
+            </div>
+          ))}
+          {orders.length === 0 && <p style={{ color: ACCENT, fontSize: 13 }}>No orders yet.</p>}
+        </div>
+      ) : (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
           <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Paid</Th><Th>Email</Th><Th>Metal</Th><Th>Links</Th><Th>Charms to fit</Th><Th>Total</Th></tr></thead>
@@ -420,12 +558,13 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
 
 // ─── Bookings tab ──────────────────────────────────────────────────────────
-function BookingsTab({ bookings, onRefresh }: { bookings: Booking[]; onRefresh: () => void }) {
+function BookingsTab({ bookings, onRefresh, isMobile }: { bookings: Booking[]; onRefresh: () => void; isMobile: boolean }) {
   const STATUS: Record<string, { bg: string; fg: string; label: string }> = {
     paid:      { bg: '#E8F9F2', fg: '#1A5C3A', label: '✅ Paid' },
     confirmed: { bg: '#E8F0FF', fg: '#1A3A7B', label: '✔ Confirmed' },
@@ -440,6 +579,31 @@ function BookingsTab({ bookings, onRefresh }: { bookings: Booking[]; onRefresh: 
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
 
+      {isMobile ? (
+        <div>
+          {bookings.map((b) => {
+            const m = badge(b.status)
+            return (
+              <div key={b.id} style={mcard}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: INK }}>{b.date} <span style={{ color: ACCENT, fontWeight: 600 }}>{b.time}</span></span>
+                  <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: m.bg, color: m.fg, flexShrink: 0 }}>{m.label}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: MAROON, marginBottom: 2 }}>
+                  {getActivityLabel(b.activity)}
+                  {b.details && <span style={{ color: ACCENT, fontSize: 12, fontWeight: 600 }}> · 📱 {b.details}</span>}
+                </div>
+                <div style={{ fontSize: 13, color: INK, marginBottom: 8 }}>{b.name || '—'} · {b.partySize} {b.partySize === 1 ? 'person' : 'people'} · {getLocationLabel(b.location)}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', fontSize: 13 }}>
+                  <a href={`mailto:${b.email}`} style={{ color: MAROON, wordBreak: 'break-all' }}>{b.email}</a>
+                  {b.phone && <a href={`tel:${b.phone}`} style={{ color: ACCENT }}>{b.phone}</a>}
+                </div>
+              </div>
+            )
+          })}
+          {bookings.length === 0 && <p style={{ color: ACCENT, fontSize: 13 }}>No bookings yet.</p>}
+        </div>
+      ) : (
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 820 }}>
           <thead><tr style={{ textAlign: 'left', color: ACCENT }}>
@@ -471,13 +635,14 @@ function BookingsTab({ bookings, onRefresh }: { bookings: Booking[]; onRefresh: 
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
 
 // ─── Phone cases tab ───────────────────────────────────────────────────────
-function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
-  phonecases: Phonecase[]; onSave: (p: Phonecase) => Promise<void> | void; onDelete: (brand: string, model: string) => void; onRefresh: () => void; busy: boolean
+function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy, isMobile }: {
+  phonecases: Phonecase[]; onSave: (p: Phonecase) => Promise<void> | void; onDelete: (brand: string, model: string) => void; onRefresh: () => void; busy: boolean; isMobile: boolean
 }) {
   const [draft, setDraft] = useState<Record<string, Phonecase>>({})
   const [q, setQ] = useState('')
@@ -522,30 +687,78 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
       {/* Add new */}
       <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 16 }}>
         <p style={{ margin: '0 0 10px', fontWeight: 800, color: MAROON, fontSize: 14 }}>➕ Add a model</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <select value={nw.brand} onChange={(e) => setNw({ ...nw, brand: e.target.value })} style={inp(110)}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8, flexWrap: 'wrap', alignItems: isMobile ? 'stretch' : 'center' }}>
+          <select value={nw.brand} onChange={(e) => setNw({ ...nw, brand: e.target.value })} style={isMobile ? inpFull : inp(110)}>
             {brandOpts.map((b) => <option key={b} value={b}>{b}</option>)}
           </select>
-          <input placeholder="Model" value={nw.model} onChange={(e) => setNw({ ...nw, model: e.target.value })} style={inp(150)} />
-          <input type="number" min="0" placeholder="Plaza" value={nw.plaza} onChange={(e) => setNw({ ...nw, plaza: e.target.value })} style={inp(75)} />
-          <input type="number" min="0" placeholder="Mercury" value={nw.mercury} onChange={(e) => setNw({ ...nw, mercury: e.target.value })} style={inp(80)} />
-          <input type="number" min="0" placeholder="Alibaba" value={nw.alibaba} onChange={(e) => setNw({ ...nw, alibaba: e.target.value })} style={inp(80)} />
+          <input placeholder="Model" value={nw.model} onChange={(e) => setNw({ ...nw, model: e.target.value })} style={isMobile ? inpFull : inp(150)} />
+          {isMobile ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="number" min="0" placeholder="Plaza" value={nw.plaza} onChange={(e) => setNw({ ...nw, plaza: e.target.value })} style={{ ...inpFull, flex: 1 }} />
+              <input type="number" min="0" placeholder="Mercury" value={nw.mercury} onChange={(e) => setNw({ ...nw, mercury: e.target.value })} style={{ ...inpFull, flex: 1 }} />
+              <input type="number" min="0" placeholder="Alibaba" value={nw.alibaba} onChange={(e) => setNw({ ...nw, alibaba: e.target.value })} style={{ ...inpFull, flex: 1 }} />
+            </div>
+          ) : (
+            <>
+              <input type="number" min="0" placeholder="Plaza" value={nw.plaza} onChange={(e) => setNw({ ...nw, plaza: e.target.value })} style={inp(75)} />
+              <input type="number" min="0" placeholder="Mercury" value={nw.mercury} onChange={(e) => setNw({ ...nw, mercury: e.target.value })} style={inp(80)} />
+              <input type="number" min="0" placeholder="Alibaba" value={nw.alibaba} onChange={(e) => setNw({ ...nw, alibaba: e.target.value })} style={inp(80)} />
+            </>
+          )}
           <button disabled={busy || !nw.model.trim()}
             onClick={() => { onSave({ brand: nw.brand, model: nw.model.trim(), plaza: +nw.plaza || 0, mercury: +nw.mercury || 0, alibaba: +nw.alibaba || 0, total: 0 }); setNw({ brand: nw.brand, model: '', plaza: '0', mercury: '0', alibaba: '0' }) }}
-            style={btn(!busy && !!nw.model.trim())}>Add</button>
+            style={{ ...btn(!busy && !!nw.model.trim()), ...(isMobile ? { width: '100%', padding: '12px' } : {}) }}>Add</button>
         </div>
       </div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={inp(130)}>
+        <select value={brandFilter} onChange={(e) => setBrandFilter(e.target.value)} style={isMobile ? { ...inpFull, flex: 1, width: 'auto' } : inp(130)}>
           {brands.map((b) => <option key={b} value={b}>{b === 'All' ? 'All brands' : b}</option>)}
         </select>
-        <input placeholder="Search model…" value={q} onChange={(e) => setQ(e.target.value)} style={inp(180)} />
-        <span style={{ alignSelf: 'center', color: ACCENT, fontSize: 13 }}>{filtered.length} shown</span>
+        <input placeholder="Search model…" value={q} onChange={(e) => setQ(e.target.value)} style={isMobile ? { ...inpFull, flex: 2, width: 'auto' } : inp(180)} />
+        {!isMobile && <span style={{ alignSelf: 'center', color: ACCENT, fontSize: 13 }}>{filtered.length} shown</span>}
       </div>
 
-      {/* Table */}
+      {/* Mobile: stacked cards — Plaza/Mercury/Alibaba editable inline, auto-saved on blur */}
+      {isMobile ? (
+        <div>
+          {filtered.map((p) => {
+            const v = val(p)
+            return (
+              <div key={keyOf(p)} style={mcard}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: ACCENT, fontWeight: 700 }}>{p.brand}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: INK }}>{p.model}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: ACCENT, fontWeight: 700 }}>Total</div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: MAROON }}>{sum(v)}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={mlabel}>Plaza</label>
+                    <input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={mlabel}>Mercury</label>
+                    <input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={mlabel}>Alibaba</label>
+                    <input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
+                  </div>
+                </div>
+                <button disabled={busy} onClick={() => onDelete(p.brand, p.model)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', width: '100%', padding: '11px' }}>Delete</button>
+              </div>
+            )
+          })}
+          {filtered.length === 0 && <p style={{ color: ACCENT, fontSize: 13 }}>No models match.</p>}
+        </div>
+      ) : (
+      /* Desktop table */
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
           <thead>
@@ -574,6 +787,7 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
@@ -671,6 +885,11 @@ function Th({ children }: { children?: React.ReactNode }) {
 }
 const td: React.CSSProperties = { padding: '6px 8px', color: INK, verticalAlign: 'middle' }
 const inp = (w: number): React.CSSProperties => ({ width: w, maxWidth: '100%', padding: '8px 10px', borderRadius: 9, border: `1px solid ${BORDER}`, fontSize: 13, outline: 'none', boxSizing: 'border-box' })
+// Full-width input for mobile cards. 16px font stops iOS from auto-zooming on focus.
+const inpFull: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 9, border: `1px solid ${BORDER}`, fontSize: 16, outline: 'none', boxSizing: 'border-box' }
+// Stacked card that replaces a table row on mobile.
+const mcard: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, marginBottom: 12, background: '#fff' }
+const mlabel: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 700, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }
 const btn = (on: boolean, primary = false): React.CSSProperties => ({ padding: '8px 14px', background: on ? (primary ? MAROON : '#7B1A38') : '#E0D0D4', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
 function fmt(iso: string) {
   if (!iso) return ''
