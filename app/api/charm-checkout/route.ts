@@ -18,6 +18,7 @@ interface CharmOrderBody {
   metal: 'silver' | 'gold' | 'bronze'
   numLinks: number
   charms: CharmItem[]
+  layout?: string[]   // one entry per link slot, in order; '' = empty (plain) link
   totalCents: number
 }
 
@@ -135,6 +136,14 @@ export async function POST(request: Request) {
     .map(([id, g]) => `${id}:${g.qty}`)
     .join(',')
 
+  // Ordered bracelet layout (charm per link, '' = plain link) so the owner can
+  // see the assembled bracelet exactly as the customer built it. Only keep known
+  // charm ids; drop it if it would blow the 500-char Stripe metadata limit.
+  const layoutStr = (Array.isArray(body.layout) ? body.layout : [])
+    .map((id) => { const s = (id ?? '').toString(); return s && priceById[s] ? s : '' })
+    .join('|')
+  const layoutMeta = layoutStr.replace(/\|+$/, '').length && layoutStr.length <= 500 ? layoutStr : ''
+
   // Authoritative total (base + metal surcharge + catalog-priced charms)
   const authTotalCents =
     basePriceCents +
@@ -154,6 +163,7 @@ export async function POST(request: Request) {
         num_links: String(numLinks),
         charms: charmSummary.slice(0, 500), // Stripe metadata max 500 chars per key
         charm_qty: charmQtyMeta.slice(0, 500), // id:qty list — used by the webhook to decrement stock
+        layout: layoutMeta, // ordered per-link charm ids ('' = plain link) for the owner's assembly view
         total_cents: String(authTotalCents),
       },
       success_url: `${origin}/charm-builder?payment=success`,

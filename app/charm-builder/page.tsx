@@ -268,7 +268,7 @@ function CharmBuilderInner() {
   const checkout = async () => {
     setLoading(true); setError('')
     try {
-      const res  = await fetch('/api/charm-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metal, numLinks, charms: placed.map(c => ({ id: c.id, name: c.name, price: c.price })), totalCents: Math.round(total * 100) }) })
+      const res  = await fetch('/api/charm-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metal, numLinks, charms: placed.map(c => ({ id: c.id, name: c.name, price: c.price })), layout: slots.map(c => c ? c.id : ''), totalCents: Math.round(total * 100) }) })
       const data = await res.json()
       if (data.url) window.location.href = data.url; else setError(data.message || 'Checkout failed.')
     } catch { setError('Network error.') }

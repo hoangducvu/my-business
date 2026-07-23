@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getActivityLabel, getLocationLabel } from '@/lib/labels'
+import { DEFAULT_CHARMS } from '@/app/charm-builder/charms'
+
+// emoji/bg fallback for charms with no uploaded image (built-in charms only)
+const CHARM_FACE = Object.fromEntries(DEFAULT_CHARMS.map((c) => [c.id, { emoji: c.emoji, bg: c.bg }]))
 
 // ─── Brand palette (matches the rest of the site) ────────────────────────────
 const MAROON = '#7B1A38'
@@ -21,9 +25,11 @@ interface Charm {
   quantity: number
 }
 interface OrderItem { id: string; name: string; qty: number; imageUrl: string }
+interface OrderFace { id: string; name: string; imageUrl: string }
 interface Order {
   sessionId: string; email: string; metal: string; numLinks: string
-  charms: string; totalCents: number; paidAt: string; items?: OrderItem[]
+  charms: string; totalCents: number; paidAt: string
+  items?: OrderItem[]; layout?: (OrderFace | null)[]
 }
 interface Booking {
   id: string; name: string; email: string; phone: string; activity: string
@@ -392,7 +398,7 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
 
-      <p style={{ margin: '0 0 12px', color: ACCENT, fontSize: 13 }}>Each order shows the exact charms to fit on the bracelet — in pictures — so it&apos;s easy to fulfil.</p>
+      <p style={{ margin: '0 0 12px', color: ACCENT, fontSize: 13 }}>Each order shows the assembled bracelet — exactly as the customer built it — plus a charm pick-list, so it&apos;s easy to fulfil.</p>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
           <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Paid</Th><Th>Email</Th><Th>Metal</Th><Th>Links</Th><Th>Charms to fit</Th><Th>Total</Th></tr></thead>
@@ -403,7 +409,10 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
                 <td style={{ ...td, verticalAlign: 'top' }}>{o.email}</td>
                 <td style={{ ...td, verticalAlign: 'top', textTransform: 'capitalize' }}>{o.metal}</td>
                 <td style={{ ...td, verticalAlign: 'top' }}>{o.numLinks}</td>
-                <td style={{ ...td, verticalAlign: 'top', minWidth: 260 }}><CharmItems items={o.items} fallback={o.charms} /></td>
+                <td style={{ ...td, verticalAlign: 'top', minWidth: 260 }}>
+                  {o.layout && o.layout.length > 0 && <BraceletStrip metal={o.metal} layout={o.layout} />}
+                  <CharmItems items={o.items} fallback={o.charms} />
+                </td>
                 <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'nowrap' }}>€{(o.totalCents / 100).toFixed(2)}</td>
               </tr>
             ))}
@@ -468,7 +477,7 @@ function BookingsTab({ bookings, onRefresh }: { bookings: Booking[]; onRefresh: 
 
 // ─── Phone cases tab ───────────────────────────────────────────────────────
 function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
-  phonecases: Phonecase[]; onSave: (p: Phonecase) => void; onDelete: (brand: string, model: string) => void; onRefresh: () => void; busy: boolean
+  phonecases: Phonecase[]; onSave: (p: Phonecase) => Promise<void> | void; onDelete: (brand: string, model: string) => void; onRefresh: () => void; busy: boolean
 }) {
   const [draft, setDraft] = useState<Record<string, Phonecase>>({})
   const [q, setQ] = useState('')
@@ -479,6 +488,18 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
   const edit = (p: Phonecase, patch: Partial<Phonecase>) =>
     setDraft((d) => ({ ...d, [keyOf(p)]: { ...p, ...d[keyOf(p)], ...patch } }))
   const val = (p: Phonecase): Phonecase => draft[keyOf(p)] ?? p
+
+  // Auto-save a row when the owner leaves a field — no Save button needed. Only
+  // writes when something actually changed, then clears the draft so the freshly
+  // reloaded values (incl. the Alibaba→Plaza move) replace the edited ones.
+  const commit = async (p: Phonecase) => {
+    const k = keyOf(p)
+    const v = draft[k]
+    if (!v) return
+    const changed = v.plaza !== p.plaza || v.mercury !== p.mercury || v.alibaba !== p.alibaba
+    if (changed) await onSave(v)
+    setDraft((d) => { const n = { ...d }; delete n[k]; return n })
+  }
   const sum = (p: { plaza: number; mercury: number; alibaba: number }) =>
     (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.alibaba) || 0)
 
@@ -496,7 +517,7 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
         <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Phone case stock <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({phonecases.length} models)</span></h2>
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
-      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit stock per source then hit Save on that row. Total is calculated automatically. Plaza/Mercury auto-decrease when a phone case is booked & paid. Stock entered under <strong>Alibaba</strong> is moved into <strong>Plaza</strong> on save (Alibaba resets to 0), so it&apos;s only counted once.</p>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit stock per source — changes <strong>save automatically</strong> when you leave a field. Total is calculated automatically. Plaza/Mercury auto-decrease when a phone case is booked & paid. Stock entered under <strong>Alibaba</strong> is moved into <strong>Plaza</strong> (Alibaba resets to 0), so it&apos;s only counted once.</p>
 
       {/* Add new */}
       <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 16 }}>
@@ -539,13 +560,12 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
                 <tr key={keyOf(p)} style={{ borderTop: `1px solid ${BORDER}` }}>
                   <td style={td}>{p.brand}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{p.model}</td>
-                  <td style={td}><input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
-                  <td style={td}><input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
-                  <td style={td}><input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inp(65)} /></td>
+                  <td style={td}><input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inp(65)} /></td>
                   <td style={{ ...td, fontWeight: 800 }}>{sum(v)}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <button disabled={busy} onClick={() => onSave(v)} style={btn(!busy, true)}>Save</button>
-                    <button disabled={busy} onClick={() => onDelete(p.brand, p.model)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', marginLeft: 6 }}>Del</button>
+                    <button disabled={busy} onClick={() => onDelete(p.brand, p.model)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4' }}>Del</button>
                   </td>
                 </tr>
               )
@@ -553,6 +573,35 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
             {filtered.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={7}>No models match.</td></tr>}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Assembled bracelet: the exact layout the customer built ─────────────────
+function BraceletStrip({ metal, layout }: { metal: string; layout: (OrderFace | null)[] }) {
+  const m = (metal || 'silver').toLowerCase()
+  const link = `/${['silver', 'gold', 'bronze'].includes(m) ? m : 'silver'}.png`
+  return (
+    <div style={{ overflowX: 'auto', paddingBottom: 6, marginBottom: 8 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', background: 'linear-gradient(180deg,#F6F2F4 0%,#EDE6EA 100%)', borderRadius: 10, padding: '7px 0', border: `2px solid ${BORDER}`, minWidth: 'max-content', boxShadow: 'inset 0 1px 4px rgba(0,0,0,.06)' }}>
+        {layout.map((f, i) => {
+          const face = f && CHARM_FACE[f.id]
+          return (
+            <div key={i} title={f?.name} style={{ width: 34, height: 34, position: 'relative', flexShrink: 0 }}>
+              <img src={link} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill' }} />
+              {f && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {f.imageUrl
+                    ? <img src={f.imageUrl} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+                    : face
+                      ? <><span style={{ position: 'absolute', inset: 4, background: face.bg, borderRadius: 2 }} /><span style={{ position: 'relative', fontSize: 15, lineHeight: 1 }}>{face.emoji}</span></>
+                      : <span style={{ fontSize: 8, color: INK, textAlign: 'center', lineHeight: 1, padding: 1 }}>{f.name.slice(0, 4)}</span>}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

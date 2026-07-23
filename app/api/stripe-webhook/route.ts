@@ -64,6 +64,7 @@ async function handleCharmOrder(
   const numLinks      = parseInt(meta.num_links ?? '18', 10)
   const charms        = meta.charms ?? ''
   const charmQty      = meta.charm_qty ?? ''   // id:qty list — used to show charm images in admin
+  const layout        = meta.layout ?? ''      // ordered per-link charm ids for the assembly view
   const totalCents    = parseInt(meta.total_cents ?? '0', 10)
 
   try {
@@ -71,10 +72,10 @@ async function handleCharmOrder(
     const sheets = getSheetsClient()
     await sheets.spreadsheets.values.append({
       spreadsheetId:    process.env.GOOGLE_SPREADSHEET_ID!,
-      range:            'CharmOrders!A:H',
+      range:            'CharmOrders!A:I',
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[session.id, customerEmail, metal, numLinks, charms, totalCents, paid_at, charmQty]],
+        values: [[session.id, customerEmail, metal, numLinks, charms, totalCents, paid_at, charmQty, layout]],
       },
     })
   } catch (err) {
@@ -148,10 +149,10 @@ async function ensureCharmOrdersSheet() {
     })
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range:            'CharmOrders!A1:H1',
+      range:            'CharmOrders!A1:I1',
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [['stripe_session_id', 'customer_email', 'metal', 'num_links', 'charms', 'total_cents', 'paid_at', 'charm_qty']],
+        values: [['stripe_session_id', 'customer_email', 'metal', 'num_links', 'charms', 'total_cents', 'paid_at', 'charm_qty', 'layout']],
       },
     })
     console.log('[stripe-webhook] Created CharmOrders sheet')
