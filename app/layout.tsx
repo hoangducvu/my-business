@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nunito, Baloo_2 } from "next/font/google";
+import { Nunito, Baloo_2, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -14,6 +14,12 @@ const baloo = Baloo_2({
   weight: ["600", "700", "800"],
 });
 
+const dmSerif = DM_Serif_Display({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+});
+
 export const metadata: Metadata = {
   title: "OddlyCraft Malta — Customise Your Own Charms, Cases & More",
   description:
@@ -26,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${nunito.variable} ${baloo.variable} h-full antialiased`}>
+    <html lang="en" className={`${nunito.variable} ${baloo.variable} ${dmSerif.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

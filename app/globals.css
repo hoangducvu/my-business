@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background:    #FFF0F4;
-  --foreground:    #3D0E1E;
+  --background:    #fefbe3;
+  --foreground:    #00246B;
 
-  /* ── OddlyCraft palette — extracted from logo ── */
-  --maroon:        #7B1A38;   /* logo dark */
-  --maroon-dark:   #5C1129;   /* pressed/hover */
-  --maroon-mid:    #9B3A54;   /* lighter maroon */
-  --rose:          #F4BFCC;   /* logo bg pink */
-  --blush:         #FDE8EF;   /* light section bg */
-  --petal:         #FADADD;   /* card bg */
-  --cream:         #FFF8F2;   /* warm near-white */
-  --soft-gray:     #faf5f7;
+  /* ── OddlyCraft palette — blue text on yellow ── */
+  --maroon:        #005CFF;   /* primary brand blue (text/logo) */
+  --maroon-dark:   #0041CC;   /* pressed/hover */
+  --maroon-mid:    #3B6FE0;   /* lighter blue */
+  --rose:          #F2E9AE;   /* yellow accent / border */
+  --blush:         #FAF5D8;   /* light section bg */
+  --petal:         #FAF4DA;   /* card bg */
+  --cream:         #FFFDF0;   /* warm near-white */
+  --soft-gray:     #FFFDF5;
 
   /* ── Accent ── */
-  --yellow:        #FFE0A0;
+  --yellow:        #FFE566;
   --yellow-dark:   #F5C842;
-  --coral:         #FF7F7F;
+  --coral:         #005CFF;
 }
 
 @theme inline {
@@ -71,7 +71,7 @@ body {
 }
 .card-hover:hover {
   transform: translateY(-6px) rotate(0.5deg);
-  box-shadow: 0 22px 44px -10px rgba(123, 26, 56, 0.22);
+  box-shadow: 0 22px 44px -10px rgba(0, 92, 255, 0.22);
 }
 
 /* ── Slot active (booking step) ── */
@@ -79,12 +79,12 @@ body {
   background: var(--maroon);
   color: #fff;
   border-color: var(--maroon);
-  box-shadow: 0 0 0 3px rgba(123, 26, 56, 0.25);
+  box-shadow: 0 0 0 3px rgba(0, 92, 255, 0.25);
 }
 
 /* ── Polka dot bg ── */
 .dots-bg {
-  background-image: radial-gradient(circle, rgba(123,26,56,0.09) 1.5px, transparent 1.5px);
+  background-image: radial-gradient(circle, rgba(0, 92, 255,0.09) 1.5px, transparent 1.5px);
   background-size: 22px 22px;
 }
 
