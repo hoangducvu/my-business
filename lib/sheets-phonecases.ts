@@ -3,13 +3,13 @@ import { PHONECASE_SEED } from '@/lib/phonecase-seed'
 
 // ─── Phone case stock (Google Sheets) ────────────────────────────────────────
 // One row per phone model, stock split across the two shops (Plaza, Mercury) and
-// two warehouse/supplier sources (Nhà Ngọc, Alibaba). TOTAL is always the sum of
-// the four and is recomputed on every write. Columns:
-//   A brand  B model  C plaza  D mercury  E nhaNgoc  F alibaba  G total
+// a supplier source (Alibaba). TOTAL is always the sum of the three and is
+// recomputed on every write. Columns:
+//   A brand  B model  C plaza  D mercury  E alibaba  F total
 // Keyed on brand+model (model names repeat across brands, e.g. iPhone vs Redmi "14 PRO").
 
 const SHEET = 'Phonecase_Inventory'
-const HEADER = ['brand', 'model', 'plaza', 'mercury', 'nhaNgoc', 'alibaba', 'total']
+const HEADER = ['brand', 'model', 'plaza', 'mercury', 'alibaba', 'total']
 
 function spreadsheetId() {
   return process.env.GOOGLE_SPREADSHEET_ID!
@@ -29,7 +29,6 @@ export interface Phonecase {
   model:   string
   plaza:   number
   mercury: number
-  nhaNgoc: number
   alibaba: number
   total:   number
 }
@@ -46,17 +45,24 @@ function toInt(x: unknown): number {
 }
 
 function rowValues(pc: Omit<Phonecase, 'total'>): (string | number)[] {
-  const total = pc.plaza + pc.mercury + pc.nhaNgoc + pc.alibaba
-  return [pc.brand, pc.model, pc.plaza, pc.mercury, pc.nhaNgoc, pc.alibaba, total]
+  const total = pc.plaza + pc.mercury + pc.alibaba
+  return [pc.brand, pc.model, pc.plaza, pc.mercury, pc.alibaba, total]
 }
 
 // Create the sheet and seed it from the owner's stock file if it doesn't exist.
+// If the sheet already exists in the old 7-column layout (with a Nhà Ngọc column),
+// migrate it in place: drop that column and recompute totals.
 export async function ensurePhonecaseSheet(): Promise<void> {
   const sheets = getSheets()
   const id     = spreadsheetId()
   const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
   const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
-  if (exists) return
+
+  if (exists) {
+    const sheetId = meta.data.sheets?.find((s) => s.properties?.title === SHEET)?.properties?.sheetId
+    await migrateDropNhaNgoc(sheets, id, sheetId ?? null)
+    return
+  }
 
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: id,
@@ -64,7 +70,7 @@ export async function ensurePhonecaseSheet(): Promise<void> {
   })
   await sheets.spreadsheets.values.update({
     spreadsheetId: id,
-    range: `${SHEET}!A1:G1`,
+    range: `${SHEET}!A1:F1`,
     valueInputOption: 'RAW',
     requestBody: { values: [HEADER] },
   })
@@ -78,12 +84,61 @@ export async function ensurePhonecaseSheet(): Promise<void> {
   console.log(`[sheets-phonecases] Created + seeded ${SHEET} with ${rows.length} models`)
 }
 
+// One-time migration: the sheet used to be
+//   A brand  B model  C plaza  D mercury  E nhaNgoc  F alibaba  G total
+// Delete the Nhà Ngọc column (E) so alibaba shifts to E and total to F, then
+// recompute totals (the old total counted the removed column). Idempotent —
+// once the header no longer contains "nhaNgoc" it does nothing.
+async function migrateDropNhaNgoc(
+  sheets: ReturnType<typeof getSheets>,
+  id: string,
+  sheetId: number | null,
+): Promise<void> {
+  if (sheetId == null) return
+  const header = await sheets.spreadsheets.values.get({ spreadsheetId: id, range: `${SHEET}!A1:G1` })
+  const cols = (header.data.values?.[0] ?? []).map((c) => c?.toString().toLowerCase())
+  if (!cols.includes('nhangoc')) return
+
+  // Delete column E (0-based index 4 = Nhà Ngọc)
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: id,
+    requestBody: {
+      requests: [{
+        deleteDimension: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 } },
+      }],
+    },
+  })
+
+  // Rewrite header and recompute totals across the (now 6-column) rows.
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: id,
+    range: `${SHEET}!A1:F1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [HEADER] },
+  })
+  const data = await sheets.spreadsheets.values.get({ spreadsheetId: id, range: `${SHEET}!A2:F` })
+  const rows = data.data.values ?? []
+  if (rows.length) {
+    const recomputed = rows.map((r) => {
+      const plaza = toInt(r[2]), mercury = toInt(r[3]), alibaba = toInt(r[4])
+      return [r[0] ?? '', r[1] ?? '', plaza, mercury, alibaba, plaza + mercury + alibaba]
+    })
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${SHEET}!A2:F${rows.length + 1}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: recomputed },
+    })
+  }
+  console.log(`[sheets-phonecases] Migrated ${SHEET}: dropped Nhà Ngọc column`)
+}
+
 export async function getPhonecases(): Promise<Phonecase[]> {
   const sheets = getSheets()
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: spreadsheetId(),
-      range: `${SHEET}!A2:G`,
+      range: `${SHEET}!A2:F`,
     })
     return (res.data.values ?? [])
       .filter((r) => (r[1]?.toString() ?? '').trim())   // needs a model
@@ -92,9 +147,8 @@ export async function getPhonecases(): Promise<Phonecase[]> {
         model:   r[1]?.toString() ?? '',
         plaza:   toInt(r[2]),
         mercury: toInt(r[3]),
-        nhaNgoc: toInt(r[4]),
-        alibaba: toInt(r[5]),
-        total:   toInt(r[2]) + toInt(r[3]) + toInt(r[4]) + toInt(r[5]),
+        alibaba: toInt(r[4]),
+        total:   toInt(r[2]) + toInt(r[3]) + toInt(r[4]),
       }))
   } catch (err) {
     console.error('[sheets-phonecases] getPhonecases read error:', err)
@@ -128,7 +182,7 @@ export async function upsertPhonecase(pc: Omit<Phonecase, 'total'>): Promise<voi
     })
   } else {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: id, range: `${SHEET}!A${rowNum}:G${rowNum}`, valueInputOption: 'RAW', requestBody: { values },
+      spreadsheetId: id, range: `${SHEET}!A${rowNum}:F${rowNum}`, valueInputOption: 'RAW', requestBody: { values },
     })
   }
 }
@@ -162,7 +216,7 @@ export async function deductStock(
   const sheets = getSheets()
   const id     = spreadsheetId()
   const res    = await sheets.spreadsheets.values.get({
-    spreadsheetId: id, range: `${SHEET}!A2:G`,
+    spreadsheetId: id, range: `${SHEET}!A2:F`,
   })
   const rows = res.data.values ?? []
   const idx  = rows.findIndex((r) => key(r[0]?.toString() ?? '', r[1]?.toString() ?? '') === key(brand, model))
@@ -177,15 +231,14 @@ export async function deductStock(
     model:   r[1]?.toString() ?? model,
     plaza:   toInt(r[2]),
     mercury: toInt(r[3]),
-    nhaNgoc: toInt(r[4]),
-    alibaba: toInt(r[5]),
+    alibaba: toInt(r[4]),
   }
   pc[location] = Math.max(0, pc[location] - Math.max(0, qty))
 
   const rowNum = idx + 2
   const values = rowValues(pc)
   await sheets.spreadsheets.values.update({
-    spreadsheetId: id, range: `${SHEET}!A${rowNum}:G${rowNum}`, valueInputOption: 'RAW', requestBody: { values: [values] },
+    spreadsheetId: id, range: `${SHEET}!A${rowNum}:F${rowNum}`, valueInputOption: 'RAW', requestBody: { values: [values] },
   })
-  return { ...pc, total: pc.plaza + pc.mercury + pc.nhaNgoc + pc.alibaba }
+  return { ...pc, total: pc.plaza + pc.mercury + pc.alibaba }
 }

@@ -26,13 +26,16 @@ export async function PUT(request: Request) {
 
   const n = (v: unknown) => Math.max(0, parseInt(v?.toString() ?? '0', 10) || 0)
   try {
+    // Alibaba is a supplier-intake field: whatever is entered is MOVED into the
+    // Plaza shop (Plaza += Alibaba) and the Alibaba column resets to 0, so stock
+    // is only ever counted once in the Total.
+    const incoming = n(body.alibaba)
     await upsertPhonecase({
       brand,
       model,
-      plaza:   n(body.plaza),
+      plaza:   n(body.plaza) + incoming,
       mercury: n(body.mercury),
-      nhaNgoc: n(body.nhaNgoc),
-      alibaba: n(body.alibaba),
+      alibaba: 0,
     })
     return NextResponse.json({ ok: true })
   } catch (err) {

@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { isAdminAuthed } from '@/lib/admin-auth'
+import { getCharmCatalog } from '@/lib/sheets-inventory'
+
+interface OrderItem { id: string; name: string; qty: number; imageUrl: string }
+
+// Turn a "id:qty,id:qty" metadata string into resolved charm items (name + image)
+// so the owner can see, in pictures, exactly which charms to put on the bracelet.
+function parseItems(charmQty: string, catalog: Map<string, { name: string; imageUrl: string }>): OrderItem[] {
+  if (!charmQty.trim()) return []
+  return charmQty.split(',').flatMap((pair) => {
+    const [id, q] = pair.split(':')
+    const cid = (id ?? '').trim()
+    const qty = parseInt(q ?? '0', 10)
+    if (!cid || !(qty > 0)) return []
+    const hit = catalog.get(cid)
+    return [{ id: cid, name: hit?.name ?? cid, qty, imageUrl: hit?.imageUrl ?? '' }]
+  })
+}
 
 function getSheets() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
@@ -21,10 +38,18 @@ export async function GET() {
   try {
     const sheets = getSheets()
     const res = await sheets.spreadsheets.values
-      .get({ spreadsheetId, range: 'CharmOrders!A2:G' })
+      .get({ spreadsheetId, range: 'CharmOrders!A2:H' })
       .catch(() => null)
 
-    // CharmOrders: A session_id, B email, C metal, D num_links, E charms, F total_cents, G paid_at
+    // Build an id → { name, image } lookup so each order can show charm pictures.
+    const catalog = new Map<string, { name: string; imageUrl: string }>()
+    try {
+      for (const c of await getCharmCatalog()) catalog.set(c.id, { name: c.name, imageUrl: c.imageUrl })
+    } catch (err) {
+      console.warn('[/api/admin/orders] catalog lookup failed (images unavailable):', err)
+    }
+
+    // CharmOrders: A session_id, B email, C metal, D num_links, E charms, F total_cents, G paid_at, H charm_qty
     const orders = (res?.data.values ?? []).map((r) => ({
       sessionId:  r[0] ?? '',
       email:      r[1] ?? '',
@@ -33,6 +58,7 @@ export async function GET() {
       charms:     r[4] ?? '',
       totalCents: parseInt(r[5] ?? '0', 10) || 0,
       paidAt:     r[6] ?? '',
+      items:      parseItems(r[7]?.toString() ?? '', catalog),
     })).reverse()
 
     return NextResponse.json({ orders: orders.slice(0, 200) })

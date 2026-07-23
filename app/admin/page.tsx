@@ -20,9 +20,10 @@ interface Charm {
   imageUrl: string
   quantity: number
 }
+interface OrderItem { id: string; name: string; qty: number; imageUrl: string }
 interface Order {
   sessionId: string; email: string; metal: string; numLinks: string
-  charms: string; totalCents: number; paidAt: string
+  charms: string; totalCents: number; paidAt: string; items?: OrderItem[]
 }
 interface Booking {
   id: string; name: string; email: string; phone: string; activity: string
@@ -31,7 +32,7 @@ interface Booking {
 }
 interface Phonecase {
   brand: string; model: string; plaza: number; mercury: number
-  nhaNgoc: number; alibaba: number; total: number
+  alibaba: number; total: number
 }
 
 type Tab = 'inventory' | 'categories' | 'orders' | 'bookings' | 'phonecases'
@@ -271,7 +272,28 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy }: {
           </select>
           <input type="number" step="0.50" min="0" placeholder="Price" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={inp(80)} />
           <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={inp(70)} />
-          <input placeholder="Image URL (optional)" value={nw.imageUrl} onChange={(e) => setNw({ ...nw, imageUrl: e.target.value })} style={inp(180)} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#fff', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {nw.imageUrl
+                ? <img src={nw.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: 16, color: '#C9AEB8' }}>🖼️</span>}
+            </div>
+            <label style={{ ...btn(!busy), padding: '8px 12px', display: 'inline-block', cursor: busy ? 'not-allowed' : 'pointer' }}>
+              {nw.imageUrl ? 'Change image' : 'Choose image'}
+              <input type="file" accept="image/*" disabled={busy} style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!file) return
+                  try { setNw((s) => ({ ...s, imageUrl: '' })); const url = await fileToResizedDataUrl(file); setNw((s) => ({ ...s, imageUrl: url })) }
+                  catch { alert('Could not read that image.') }
+                }} />
+            </label>
+            {nw.imageUrl && (
+              <button type="button" disabled={busy} onClick={() => setNw({ ...nw, imageUrl: '' })} title="Remove image"
+                style={{ background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', borderRadius: 6, width: 24, height: 24, cursor: 'pointer', fontWeight: 800, lineHeight: 1, flexShrink: 0 }}>×</button>
+            )}
+          </div>
           <button disabled={busy || !nw.name.trim()}
             onClick={() => { onSave({ id: `${slug(nw.name)}${Math.random().toString(36).slice(2, 5)}`, name: nw.name.trim(), category: nw.category || cats[0], price: Number(nw.price) || 0, quantity: parseInt(nw.quantity) || 0, imageUrl: nw.imageUrl.trim() }); setNw({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' }) }}
             style={btn(!busy && !!nw.name.trim())}>Add</button>
@@ -370,18 +392,19 @@ function OrdersTab({ orders, onRefresh }: { orders: Order[]; onRefresh: () => vo
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
 
+      <p style={{ margin: '0 0 12px', color: ACCENT, fontSize: 13 }}>Each order shows the exact charms to fit on the bracelet — in pictures — so it&apos;s easy to fulfil.</p>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 720 }}>
-          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Paid</Th><Th>Email</Th><Th>Metal</Th><Th>Links</Th><Th>Charms</Th><Th>Total</Th></tr></thead>
+          <thead><tr style={{ textAlign: 'left', color: ACCENT }}><Th>Paid</Th><Th>Email</Th><Th>Metal</Th><Th>Links</Th><Th>Charms to fit</Th><Th>Total</Th></tr></thead>
           <tbody>
             {orders.map((o) => (
               <tr key={o.sessionId} style={{ borderTop: `1px solid ${BORDER}` }}>
-                <td style={td}>{fmt(o.paidAt)}</td>
-                <td style={td}>{o.email}</td>
-                <td style={td}>{o.metal}</td>
-                <td style={td}>{o.numLinks}</td>
-                <td style={{ ...td, maxWidth: 280 }}>{o.charms}</td>
-                <td style={td}>€{(o.totalCents / 100).toFixed(2)}</td>
+                <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'nowrap' }}>{fmt(o.paidAt)}</td>
+                <td style={{ ...td, verticalAlign: 'top' }}>{o.email}</td>
+                <td style={{ ...td, verticalAlign: 'top', textTransform: 'capitalize' }}>{o.metal}</td>
+                <td style={{ ...td, verticalAlign: 'top' }}>{o.numLinks}</td>
+                <td style={{ ...td, verticalAlign: 'top', minWidth: 260 }}><CharmItems items={o.items} fallback={o.charms} /></td>
+                <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'nowrap' }}>€{(o.totalCents / 100).toFixed(2)}</td>
               </tr>
             ))}
             {orders.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={6}>No orders yet.</td></tr>}
@@ -450,14 +473,14 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
   const [draft, setDraft] = useState<Record<string, Phonecase>>({})
   const [q, setQ] = useState('')
   const [brandFilter, setBrandFilter] = useState('All')
-  const [nw, setNw] = useState({ brand: 'iPhone', model: '', plaza: '0', mercury: '0', nhaNgoc: '0', alibaba: '0' })
+  const [nw, setNw] = useState({ brand: 'iPhone', model: '', plaza: '0', mercury: '0', alibaba: '0' })
 
   const keyOf = (p: { brand: string; model: string }) => `${p.brand}||${p.model}`
   const edit = (p: Phonecase, patch: Partial<Phonecase>) =>
     setDraft((d) => ({ ...d, [keyOf(p)]: { ...p, ...d[keyOf(p)], ...patch } }))
   const val = (p: Phonecase): Phonecase => draft[keyOf(p)] ?? p
-  const sum = (p: { plaza: number; mercury: number; nhaNgoc: number; alibaba: number }) =>
-    (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.nhaNgoc) || 0) + (Number(p.alibaba) || 0)
+  const sum = (p: { plaza: number; mercury: number; alibaba: number }) =>
+    (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.alibaba) || 0)
 
   const brands = ['All', ...Array.from(new Set(phonecases.map((p) => p.brand)))]
   const knownBrands = Array.from(new Set(phonecases.map((p) => p.brand)))
@@ -473,7 +496,7 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
         <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Phone case stock <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({phonecases.length} models)</span></h2>
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
-      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit stock per source then hit Save on that row. Total is calculated automatically. Plaza/Mercury auto-decrease when a phone case is booked & paid.</p>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Edit stock per source then hit Save on that row. Total is calculated automatically. Plaza/Mercury auto-decrease when a phone case is booked & paid. Stock entered under <strong>Alibaba</strong> is moved into <strong>Plaza</strong> on save (Alibaba resets to 0), so it&apos;s only counted once.</p>
 
       {/* Add new */}
       <div style={{ background: SOFT, borderRadius: 12, padding: 14, marginBottom: 16 }}>
@@ -485,10 +508,9 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
           <input placeholder="Model" value={nw.model} onChange={(e) => setNw({ ...nw, model: e.target.value })} style={inp(150)} />
           <input type="number" min="0" placeholder="Plaza" value={nw.plaza} onChange={(e) => setNw({ ...nw, plaza: e.target.value })} style={inp(75)} />
           <input type="number" min="0" placeholder="Mercury" value={nw.mercury} onChange={(e) => setNw({ ...nw, mercury: e.target.value })} style={inp(80)} />
-          <input type="number" min="0" placeholder="Nhà Ngọc" value={nw.nhaNgoc} onChange={(e) => setNw({ ...nw, nhaNgoc: e.target.value })} style={inp(85)} />
           <input type="number" min="0" placeholder="Alibaba" value={nw.alibaba} onChange={(e) => setNw({ ...nw, alibaba: e.target.value })} style={inp(80)} />
           <button disabled={busy || !nw.model.trim()}
-            onClick={() => { onSave({ brand: nw.brand, model: nw.model.trim(), plaza: +nw.plaza || 0, mercury: +nw.mercury || 0, nhaNgoc: +nw.nhaNgoc || 0, alibaba: +nw.alibaba || 0, total: 0 }); setNw({ brand: nw.brand, model: '', plaza: '0', mercury: '0', nhaNgoc: '0', alibaba: '0' }) }}
+            onClick={() => { onSave({ brand: nw.brand, model: nw.model.trim(), plaza: +nw.plaza || 0, mercury: +nw.mercury || 0, alibaba: +nw.alibaba || 0, total: 0 }); setNw({ brand: nw.brand, model: '', plaza: '0', mercury: '0', alibaba: '0' }) }}
             style={btn(!busy && !!nw.model.trim())}>Add</button>
         </div>
       </div>
@@ -507,7 +529,7 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
           <thead>
             <tr style={{ textAlign: 'left', color: ACCENT }}>
-              <Th>Brand</Th><Th>Model</Th><Th>Plaza</Th><Th>Mercury</Th><Th>Nhà Ngọc</Th><Th>Alibaba</Th><Th>Total</Th><Th></Th>
+              <Th>Brand</Th><Th>Model</Th><Th>Plaza</Th><Th>Mercury</Th><Th>Alibaba</Th><Th>Total</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -519,7 +541,6 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
                   <td style={{ ...td, fontWeight: 700 }}>{p.model}</td>
                   <td style={td}><input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
                   <td style={td}><input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
-                  <td style={td}><input type="number" min="0" value={v.nhaNgoc} onChange={(e) => edit(p, { nhaNgoc: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
                   <td style={td}><input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
                   <td style={{ ...td, fontWeight: 800 }}>{sum(v)}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
@@ -529,10 +550,36 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy }: {
                 </tr>
               )
             })}
-            {filtered.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={8}>No models match.</td></tr>}
+            {filtered.length === 0 && <tr><td style={{ ...td, color: ACCENT }} colSpan={7}>No models match.</td></tr>}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+// ─── Charm order line: pictures of every charm to fit on the bracelet ────────
+function CharmItems({ items, fallback }: { items?: OrderItem[]; fallback: string }) {
+  if (!items || items.length === 0) {
+    // Older orders recorded before charm images — show the text summary.
+    return <span>{fallback || '—'}</span>
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {items.map((it) => (
+        <div key={it.id} title={`${it.name}${it.qty > 1 ? ` ×${it.qty}` : ''}`}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 64 }}>
+          <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#F5EEF1', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {it.imageUrl
+              ? <img src={it.imageUrl} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 11, color: ACCENT, textAlign: 'center', padding: 2, lineHeight: 1.1 }}>{it.name}</span>}
+            {it.qty > 1 && (
+              <span style={{ position: 'absolute', top: -6, right: -6, background: MAROON, color: '#fff', borderRadius: 20, minWidth: 18, height: 18, padding: '0 5px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.25)' }}>×{it.qty}</span>
+            )}
+          </div>
+          <span style={{ marginTop: 3, fontSize: 10.5, color: INK, textAlign: 'center', lineHeight: 1.15, maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+        </div>
+      ))}
     </div>
   )
 }

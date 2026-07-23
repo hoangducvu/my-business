@@ -94,31 +94,34 @@ export async function POST(request: Request) {
 
   // 3. Individual charms — resolve authoritative prices from the catalog so the
   //    client cannot tamper with per-charm prices sent in the request body.
-  let priceById: Record<string, { price: number; name: string }>
+  let priceById: Record<string, { price: number; name: string; imageUrl: string }>
   try {
     const catalog = await getCharmCatalog()
-    priceById = Object.fromEntries(catalog.map((c) => [c.id, { price: c.price, name: c.name }]))
+    priceById = Object.fromEntries(catalog.map((c) => [c.id, { price: c.price, name: c.name, imageUrl: c.imageUrl }]))
   } catch (err) {
     console.error('[/api/charm-checkout] catalog lookup failed:', err)
     return NextResponse.json({ message: 'Could not verify charm prices. Please try again.' }, { status: 502 })
   }
 
-  const grouped: Record<string, { name: string; price: number; qty: number }> = {}
+  const grouped: Record<string, { name: string; price: number; qty: number; imageUrl: string }> = {}
   for (const charm of charms) {
     const known = priceById[charm.id]
     if (!known) {
       return NextResponse.json({ message: `Unknown charm: ${charm.id}` }, { status: 400 })
     }
     if (grouped[charm.id]) grouped[charm.id].qty++
-    else grouped[charm.id] = { name: known.name, price: known.price, qty: 1 }
+    else grouped[charm.id] = { name: known.name, price: known.price, qty: 1, imageUrl: known.imageUrl }
   }
 
-  for (const { name, price, qty } of Object.values(grouped)) {
+  for (const { name, price, qty, imageUrl } of Object.values(grouped)) {
+    // Stripe only accepts publicly-fetchable image URLs; skip uploaded data-URLs
+    // so the picture shows on Checkout/receipt without ever breaking the session.
+    const images = imageUrl.startsWith('http') ? [imageUrl] : []
     lineItems.push({
       price_data: {
         currency: 'eur',
         unit_amount: Math.round(price * 100),
-        product_data: { name: `Italian Charm — ${name}` },
+        product_data: { name: `Italian Charm — ${name}`, images },
       },
       quantity: qty,
     })
