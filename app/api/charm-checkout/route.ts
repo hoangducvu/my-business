@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Add at least one charm.' }, { status: 400 })
   }
 
-  const origin = request.headers.get('origin') ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+  const origin = request.headers.get('origin') ?? 'https://oddlycraft.netlify.app'
 
   // Build Stripe line items
   const lineItems: NonNullable<NonNullable<Parameters<typeof stripe.checkout.sessions.create>[0]>['line_items']> = []

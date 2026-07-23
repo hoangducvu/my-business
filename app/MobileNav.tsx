@@ -51,9 +51,10 @@ export default function MobileNav() {
           {/* Nav links */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {[
-              ['#how', '✨ How It Works'],
-              ['#charms', '🔗 Our Charms'],
+              ['#workshops', '🎨 What We Make'],
               ['#faqs', '❓ FAQs'],
+              ['/charm-builder', '🔗 Charm Builder'],
+              ['#locations', '📍 Find Us'],
             ].map(([href, label]) => (
               <a
                 key={href}
@@ -74,7 +75,7 @@ export default function MobileNav() {
               </a>
             ))}
             <a
-              href="/charm-builder"
+              href="#book"
               onClick={() => setOpen(false)}
               style={{
                 display: 'block',
@@ -90,7 +91,7 @@ export default function MobileNav() {
                 boxShadow: '0 2px 8px rgba(123,26,56,0.3)',
               }}
             >
-              🔗 Design Your Bracelet
+              📅 Book a Session
             </a>
           </div>
 

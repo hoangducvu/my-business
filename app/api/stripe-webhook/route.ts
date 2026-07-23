@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { createBookingCalendarEvent } from '@/lib/google-calendar'
 import { updateInventoryQty } from '@/lib/sheets-inventory'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -37,20 +38,33 @@ export async function POST(request: Request) {
 
   const session = event.data.object as Stripe.Checkout.Session
   const meta    = (session.metadata ?? {}) as Record<string, string>
+  const paid_at = new Date().toISOString()
 
-  // Only charm-bracelet orders are handled now (Stripe emails the receipt itself).
-  if (meta.product_type !== 'italian_charm_bracelet') {
+  if (meta.product_type === 'italian_charm_bracelet') {
+    return handleCharmOrder(session, meta, paid_at)
+  }
+
+  const invoice_id = meta.invoice_id?.trim()
+  if (!invoice_id) {
+    console.warn('[/api/stripe-webhook] No invoice_id or product_type in metadata:', session.id)
     return NextResponse.json({ received: true })
   }
 
-  const paid_at       = new Date().toISOString()
+  return handleBookingPayment(session, meta, invoice_id, paid_at)
+}
+
+// ─── Charm-bracelet order: record + decrement stock (Stripe emails the receipt) ─
+async function handleCharmOrder(
+  session:  Stripe.Checkout.Session,
+  meta:     Record<string, string>,
+  paid_at:  string,
+) {
   const customerEmail = session.customer_email ?? session.customer_details?.email ?? ''
   const metal         = meta.metal ?? 'silver'
   const numLinks      = parseInt(meta.num_links ?? '18', 10)
   const charms        = meta.charms ?? ''
   const totalCents    = parseInt(meta.total_cents ?? '0', 10)
 
-  // 1. Record the order
   try {
     await ensureCharmOrdersSheet()
     const sheets = getSheetsClient()
@@ -66,7 +80,6 @@ export async function POST(request: Request) {
     console.error('[/api/stripe-webhook] CharmOrders sheet write error:', err)
   }
 
-  // 2. Decrement real stock now that payment is confirmed (charm_qty is "id:qty,id:qty").
   const charmQty = meta.charm_qty ?? ''
   if (charmQty) {
     await Promise.allSettled(
@@ -79,7 +92,74 @@ export async function POST(request: Request) {
   }
 
   console.log('[/api/stripe-webhook] Charm order processed:', session.id)
-  return NextResponse.json({ received: true, session_id: session.id })
+  return NextResponse.json({ received: true, type: 'charm_order', session_id: session.id })
+}
+
+// ─── Booking / invoice payment: mark paid in Sheets + add to calendar ──────────
+async function handleBookingPayment(
+  session:    Stripe.Checkout.Session,
+  meta:       Record<string, string>,
+  invoice_id: string,
+  paid_at:    string,
+) {
+  let rowIndex:   number | undefined
+  let invoiceRow: string[] | undefined
+
+  try {
+    const sheets = getSheetsClient()
+    const res    = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID!,
+      range:         'Invoices!A:J',
+    })
+    const rows     = res.data.values ?? []
+    const dataRows = rows.slice(1)
+    const idx      = dataRows.findIndex((row) => row[0]?.toString().trim() === invoice_id)
+    if (idx !== -1) {
+      rowIndex   = idx + 2
+      invoiceRow = dataRows[idx]
+    }
+  } catch (err) {
+    console.error('[/api/stripe-webhook] Sheets read error:', err)
+    return NextResponse.json({ message: 'Sheets read failed.' }, { status: 502 })
+  }
+
+  if (rowIndex === undefined || !invoiceRow) {
+    console.warn('[/api/stripe-webhook] invoice_id not found:', invoice_id)
+    return NextResponse.json({ received: true, warning: 'invoice_id not found' })
+  }
+
+  try {
+    const sheets = getSheetsClient()
+    await sheets.spreadsheets.values.update({
+      spreadsheetId:    process.env.GOOGLE_SPREADSHEET_ID!,
+      range:            `Invoices!G${rowIndex}:H${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody:      { values: [['paid', paid_at]] },
+    })
+  } catch (err) {
+    console.error('[/api/stripe-webhook] Sheets write error:', err)
+    return NextResponse.json({ message: 'Sheets write failed.' }, { status: 502 })
+  }
+
+  const customerEmail = invoiceRow[2]?.toString() || session.customer_email || ''
+  const customerName  = invoiceRow[1]?.toString() || meta.customer_name || ''
+
+  const activity  = meta.activity   ?? ''
+  const location  = meta.location   ?? ''
+  const date      = meta.date       ?? ''
+  const time      = meta.time       ?? ''
+  const phone     = meta.phone      ?? ''
+  const partySize = parseInt(meta.party_size ?? '1', 10)
+  const isBooking = !!(activity && location && date && time)
+
+  if (isBooking) {
+    // Create the calendar event now that payment is confirmed
+    await createBookingCalendarEvent({ name: customerName, email: customerEmail, phone, date, time, activity, partySize, location, paid: true })
+      .catch((err) => console.error('[/api/stripe-webhook] Calendar event error:', err))
+  }
+
+  console.log('[/api/stripe-webhook] Invoice', invoice_id, 'marked paid at', paid_at)
+  return NextResponse.json({ received: true, invoice_id, paid_at })
 }
 
 async function ensureCharmOrdersSheet() {

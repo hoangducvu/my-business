@@ -15,9 +15,9 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: "OddlyCraft Malta — Design Your Own Italian Charm Bracelet",
+  title: "OddlyCraft Malta — Customise Your Own Charms, Cases & More",
   description:
-    "Build your own Italian charm bracelet online. Pick your metal, choose your links, and add charms that tell your story — handmade in Malta, shipped to your door.",
+    "Walk-in craft workshop in Malta. Make your own phone case, Italian charm bracelet, pencil case, locket heart, passport cover, bag charm, bead bracelet or phone chain — no skills needed!",
 };
 
 export default function RootLayout({
