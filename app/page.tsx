@@ -45,49 +45,79 @@ export default function HomePage() {
   return (
     <main className="min-h-screen" style={{ background: 'var(--background)', fontFamily: 'var(--font-nunito), sans-serif' }}>
 
-      {/* ── NAV ── */}
-      <nav className="sticky top-0 z-50" style={{ background: '#FEFBE3', borderBottom: '1px solid rgba(0,92,255,0.10)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-32 flex items-center justify-between gap-2 sm:gap-4">
+      {/* ── NAV (store awning) ── */}
+      <nav className="sticky top-0 z-50">
+        {/* Striped awning bar */}
+        <div
+          className="relative"
+          style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 80px, #fae8a2 80px 160px)' }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-32 flex items-center justify-between gap-2 sm:gap-4 relative z-10">
 
-          {/* Left: Shop dropdown (desktop) + hamburger (mobile) */}
-          <div className="flex-1 flex items-center justify-start">
-            <div className="hidden md:block">
-              <ShopDropdown />
+            {/* Left: Shop dropdown (desktop) + hamburger (mobile) */}
+            <div className="flex-1 flex items-center justify-start">
+              <div className="hidden md:block">
+                <ShopDropdown />
+              </div>
+              <MobileNav />
             </div>
-            <MobileNav />
-          </div>
 
-          {/* Center: brand logo (real PNG, recoloured to brand blue via mask) */}
-          <a href="/" className="flex-none" aria-label="OddlyCraft home">
-            <span
-              role="img"
-              aria-label="OddlyCraft"
-              className="block h-14 sm:h-20"
-              style={{
-                width: 'auto', aspectRatio: '773 / 164',
-                backgroundColor: '#005CFF',
-                WebkitMaskImage: 'url(/logo-transparent.png)',
-                maskImage: 'url(/logo-transparent.png)',
-                WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'center', maskPosition: 'center',
-                WebkitMaskSize: 'contain', maskSize: 'contain',
-              }}
-            />
-          </a>
-
-          {/* Right: shopping bag */}
-          <div className="flex-1 flex items-center justify-end gap-4 sm:gap-5">
-            <a
-              href="#book"
-              aria-label="Shopping bag"
-              className="inline-flex items-center"
-              style={{ color: '#005CFF', textDecoration: 'none' }}
-            >
-              <svg width="23" height="23" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12A1.125 1.125 0 0119.746 21H4.254a1.125 1.125 0 01-1.123-1.243l1.264-12A1.125 1.125 0 015.513 6.75h12.974c.576 0 1.059.435 1.119 1.007z" />
-              </svg>
+            {/* Center: brand badge (new oval logo) */}
+            <a href="/" className="flex-none" aria-label="OddlyCraft home">
+              <span
+                className="relative inline-flex items-center justify-center h-16 sm:h-24"
+                style={{ aspectRatio: '1.58 / 1', background: '#0a0a0a', borderRadius: '50%' }}
+              >
+                {/* cream ring */}
+                <span
+                  aria-hidden
+                  className="absolute rounded-[50%]"
+                  style={{ inset: '7%', border: '2px solid #FEFFD7' }}
+                />
+                {/* stacked wordmark, recoloured cream */}
+                <span
+                  role="img"
+                  aria-label="OddlyCraft"
+                  className="relative block h-[52%]"
+                  style={{
+                    width: 'auto', aspectRatio: '527 / 333',
+                    backgroundColor: '#FEFFD7',
+                    WebkitMaskImage: 'url(/logo-stacked.png)',
+                    maskImage: 'url(/logo-stacked.png)',
+                    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center', maskPosition: 'center',
+                    WebkitMaskSize: 'contain', maskSize: 'contain',
+                  }}
+                />
+              </span>
             </a>
+
+            {/* Right: shopping bag */}
+            <div className="flex-1 flex items-center justify-end gap-4 sm:gap-5">
+              <a
+                href="#book"
+                aria-label="Shopping bag"
+                className="inline-flex items-center"
+                style={{ color: '#005CFF', textDecoration: 'none' }}
+              >
+                <svg width="23" height="23" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12A1.125 1.125 0 0119.746 21H4.254a1.125 1.125 0 01-1.123-1.243l1.264-12A1.125 1.125 0 015.513 6.75h12.974c.576 0 1.059.435 1.119 1.007z" />
+                </svg>
+              </a>
+            </div>
           </div>
+
+          {/* Scalloped bottom edge — alternating semi-circles hanging below */}
+          <div
+            aria-hidden
+            className="absolute left-0 right-0 top-full h-10 pointer-events-none"
+            style={{
+              backgroundImage: 'url(/scallops.svg)',
+              backgroundRepeat: 'repeat-x',
+              backgroundSize: '160px 40px',
+              backgroundPosition: 'left top',
+            }}
+          />
         </div>
       </nav>
 
@@ -229,11 +259,11 @@ export default function HomePage() {
 
           {/* Big serif tagline — one line, thin, stretched full width */}
           <h2
-            className="mb-14 whitespace-nowrap"
+            className="mb-14 whitespace-nowrap text-center"
             style={{
               fontFamily: 'var(--font-serif), Georgia, serif',
               color: '#005CFF',
-              fontWeight: 300,
+              fontWeight: 400,
               lineHeight: 1,
               fontSize: 'clamp(1rem, 6.6vw, 7.5rem)',
             }}
@@ -315,8 +345,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Wavy divider — animated scroll (left → right) */}
-          <div className="wave-scroll w-full mb-6" aria-hidden="true" />
+          {/* Wavy divider — animated scroll (left → right), full-bleed */}
+          <div className="wave-scroll mb-6 -mx-4 sm:-mx-6" aria-hidden="true" />
 
           {/* Bottom bar: policies + socials */}
           <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">
