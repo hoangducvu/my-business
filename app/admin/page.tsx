@@ -668,6 +668,17 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy, isMobile
   const sum = (p: { plaza: number; mercury: number; alibaba: number }) =>
     (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.alibaba) || 0)
 
+  // Quick "sold one" — drop a shop's stock by 1 (floored at 0) and save right away.
+  // Clears any pending draft first so the reloaded row replaces the edited values.
+  const deductOne = (p: Phonecase, loc: 'plaza' | 'mercury') => {
+    const v = val(p)
+    const current = Number(v[loc]) || 0
+    if (busy || current <= 0) return
+    const next = { ...v, [loc]: current - 1 }
+    setDraft((d) => { const n = { ...d }; delete n[keyOf(p)]; return n })
+    onSave(next)
+  }
+
   const brands = ['All', ...Array.from(new Set(phonecases.map((p) => p.brand)))]
   const knownBrands = Array.from(new Set(phonecases.map((p) => p.brand)))
   const brandOpts = knownBrands.length ? knownBrands : ['iPhone', 'Samsung', 'Redmi']
@@ -741,10 +752,12 @@ function PhonecasesTab({ phonecases, onSave, onDelete, onRefresh, busy, isMobile
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Plaza</label>
                     <input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
+                    <button disabled={busy || (Number(v.plaza) || 0) <= 0} onClick={() => deductOne(p, 'plaza')} style={deductBtn(!busy && (Number(v.plaza) || 0) > 0)}>−1 sold</button>
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Mercury</label>
                     <input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
+                    <button disabled={busy || (Number(v.mercury) || 0) <= 0} onClick={() => deductOne(p, 'mercury')} style={deductBtn(!busy && (Number(v.mercury) || 0) > 0)}>−1 sold</button>
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Alibaba</label>
@@ -891,6 +904,8 @@ const inpFull: React.CSSProperties = { width: '100%', padding: '10px 12px', bord
 const mcard: React.CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, marginBottom: 12, background: '#fff' }
 const mlabel: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 700, color: ACCENT, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }
 const btn = (on: boolean, primary = false): React.CSSProperties => ({ padding: '8px 14px', background: on ? (primary ? MAROON : '#7B1A38') : '#E0D0D4', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
+// Compact "sold one" button under a shop's stock input on mobile cards.
+const deductBtn = (on: boolean): React.CSSProperties => ({ width: '100%', marginTop: 6, padding: '8px', background: on ? '#fff' : '#F5EEF1', color: on ? '#C0392B' : '#C9AEB8', border: `1px solid ${on ? '#E8B4B4' : BORDER}`, borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
 function fmt(iso: string) {
   if (!iso) return ''
   const d = new Date(iso)
