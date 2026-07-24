@@ -46,19 +46,19 @@ export default function HomePage() {
     <main className="min-h-screen" style={{ background: 'var(--background)', fontFamily: 'var(--font-nunito), sans-serif' }}>
 
       {/* ── NAV (store awning) ── */}
-      <nav className="sticky top-0 z-50" style={{ background: '#FEFBE3' }}>
+      <nav className="sticky top-0 z-50">
         {/* Thin striped awning with scalloped bottom edge */}
         <div
-          className="relative h-8"
-          style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 80px, #fae8a2 80px 160px)' }}
+          className="relative h-4"
+          style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 48px, #fae8a2 48px 96px)' }}
         >
           <div
             aria-hidden
-            className="absolute left-0 right-0 top-full h-10 pointer-events-none"
+            className="absolute left-0 right-0 top-full h-6 pointer-events-none"
             style={{
               backgroundImage: 'url(/scallops.svg)',
               backgroundRepeat: 'repeat-x',
-              backgroundSize: '160px 40px',
+              backgroundSize: '96px 24px',
               backgroundPosition: 'left top',
             }}
           />
@@ -89,11 +89,12 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Centred brand badge — blue, hanging just below the awning */}
+          {/* Centred brand badge — blue, sitting fully below the awning */}
           <a
             href="/"
             aria-label="OddlyCraft home"
-            className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2"
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{ top: '32px' }}
           >
             <span
               className="relative inline-flex items-center justify-center h-16 sm:h-20"
