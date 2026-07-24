@@ -5,6 +5,7 @@ import { createBookingCalendarEvent } from '@/lib/google-calendar'
 import { updateInventoryQty } from '@/lib/sheets-inventory'
 import { markBookingPaid } from '@/lib/sheets-bookings'
 import { deductStock } from '@/lib/sheets-phonecases'
+import { appendDeduction } from '@/lib/sheets-phonecase-log'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-04-22.dahlia',
@@ -126,9 +127,18 @@ async function handleBookingPayment(
       .catch((err) => console.error('[/api/stripe-webhook] Calendar event error:', err))
   }
 
-  // Deduct phone-case stock from the shop the booking is for (Plaza/Mercury).
+  // Deduct phone-case stock from the shop the booking is for (Plaza/Mercury)
+  // and record it in the deduction history.
   if (activity === 'phonecase' && meta.phone_model && (location === 'plaza' || location === 'mercury')) {
     await deductStock(meta.phone_brand ?? '', meta.phone_model, location, partySize)
+      .then((updated) => {
+        if (updated) {
+          return appendDeduction({
+            brand: updated.brand, model: updated.model, location, qty: partySize,
+            source: 'booking', note: customerName || customerEmail,
+          })
+        }
+      })
       .catch((err) => console.error('[/api/stripe-webhook] Phone-case stock deduct error:', err))
   }
 

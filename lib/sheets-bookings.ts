@@ -105,6 +105,13 @@ export async function getBookings(): Promise<Booking[]> {
 
 // Flip a booking's status to 'paid' once Stripe confirms payment.
 export async function markBookingPaid(id: string): Promise<void> {
+  await setBookingStatus(id, 'paid')
+}
+
+// Set a booking's status column (K) to an arbitrary value. Returns true if the
+// booking row was found and updated. Used by the admin "customer came / done"
+// tick (status 'done') as well as markBookingPaid.
+export async function setBookingStatus(id: string, status: string): Promise<boolean> {
   const sheets = getSheets()
   const ss     = spreadsheetId()
   const res    = await sheets.spreadsheets.values.get({
@@ -114,14 +121,15 @@ export async function markBookingPaid(id: string): Promise<void> {
   const ids = (res.data.values ?? []).map((r) => r[0]?.toString().trim())
   const idx = ids.findIndex((rid) => rid === id)
   if (idx === -1) {
-    console.warn('[sheets-bookings] markBookingPaid: booking not found:', id)
-    return
+    console.warn('[sheets-bookings] setBookingStatus: booking not found:', id)
+    return false
   }
   const rowNum = idx + 2
   await sheets.spreadsheets.values.update({
     spreadsheetId: ss,
     range: `${SHEET}!K${rowNum}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [['paid']] },
+    requestBody: { values: [[status]] },
   })
+  return true
 }
