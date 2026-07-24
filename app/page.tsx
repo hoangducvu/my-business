@@ -46,68 +46,12 @@ export default function HomePage() {
     <main className="min-h-screen" style={{ background: 'var(--background)', fontFamily: 'var(--font-nunito), sans-serif' }}>
 
       {/* ── NAV (store awning) ── */}
-      <nav className="sticky top-0 z-50">
-        {/* Striped awning bar */}
+      <nav className="sticky top-0 z-50" style={{ background: '#FEFBE3' }}>
+        {/* Thin striped awning with scalloped bottom edge */}
         <div
-          className="relative"
+          className="relative h-8"
           style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 80px, #fae8a2 80px 160px)' }}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-8 h-24 sm:h-32 flex items-center justify-between gap-2 sm:gap-4 relative z-10">
-
-            {/* Left: Shop dropdown (desktop) + hamburger (mobile) */}
-            <div className="flex-1 flex items-center justify-start">
-              <div className="hidden md:block">
-                <ShopDropdown />
-              </div>
-              <MobileNav />
-            </div>
-
-            {/* Center: brand badge (new oval logo) */}
-            <a href="/" className="flex-none" aria-label="OddlyCraft home">
-              <span
-                className="relative inline-flex items-center justify-center h-16 sm:h-24"
-                style={{ aspectRatio: '1.58 / 1', background: '#0a0a0a', borderRadius: '50%' }}
-              >
-                {/* cream ring */}
-                <span
-                  aria-hidden
-                  className="absolute rounded-[50%]"
-                  style={{ inset: '7%', border: '2px solid #FEFFD7' }}
-                />
-                {/* stacked wordmark, recoloured cream */}
-                <span
-                  role="img"
-                  aria-label="OddlyCraft"
-                  className="relative block h-[52%]"
-                  style={{
-                    width: 'auto', aspectRatio: '527 / 333',
-                    backgroundColor: '#FEFFD7',
-                    WebkitMaskImage: 'url(/logo-stacked.png)',
-                    maskImage: 'url(/logo-stacked.png)',
-                    WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
-                    WebkitMaskPosition: 'center', maskPosition: 'center',
-                    WebkitMaskSize: 'contain', maskSize: 'contain',
-                  }}
-                />
-              </span>
-            </a>
-
-            {/* Right: shopping bag */}
-            <div className="flex-1 flex items-center justify-end gap-4 sm:gap-5">
-              <a
-                href="#book"
-                aria-label="Shopping bag"
-                className="inline-flex items-center"
-                style={{ color: '#005CFF', textDecoration: 'none' }}
-              >
-                <svg width="23" height="23" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12A1.125 1.125 0 0119.746 21H4.254a1.125 1.125 0 01-1.123-1.243l1.264-12A1.125 1.125 0 015.513 6.75h12.974c.576 0 1.059.435 1.119 1.007z" />
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          {/* Scalloped bottom edge — alternating semi-circles hanging below */}
           <div
             aria-hidden
             className="absolute left-0 right-0 top-full h-10 pointer-events-none"
@@ -118,6 +62,71 @@ export default function HomePage() {
               backgroundPosition: 'left top',
             }}
           />
+        </div>
+
+        {/* Controls row (below the canopy) + centred badge hanging outside it */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center justify-between gap-2 sm:gap-4">
+
+          {/* Left: Shop dropdown (desktop) + hamburger (mobile) */}
+          <div className="flex-1 flex items-center justify-start">
+            <div className="hidden md:block">
+              <ShopDropdown />
+            </div>
+            <MobileNav />
+          </div>
+
+          {/* Right: shopping bag */}
+          <div className="flex-1 flex items-center justify-end gap-4 sm:gap-5">
+            <a
+              href="#book"
+              aria-label="Shopping bag"
+              className="inline-flex items-center"
+              style={{ color: '#005CFF', textDecoration: 'none' }}
+            >
+              <svg width="23" height="23" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12A1.125 1.125 0 0119.746 21H4.254a1.125 1.125 0 01-1.123-1.243l1.264-12A1.125 1.125 0 015.513 6.75h12.974c.576 0 1.059.435 1.119 1.007z" />
+              </svg>
+            </a>
+          </div>
+
+          {/* Centred brand badge — blue, hanging just below the awning */}
+          <a
+            href="/"
+            aria-label="OddlyCraft home"
+            className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2"
+          >
+            <span
+              className="relative inline-flex items-center justify-center h-16 sm:h-20"
+              style={{
+                aspectRatio: '1.58 / 1',
+                background: '#005CFF',
+                borderRadius: '50%',
+                boxShadow: '0 8px 20px rgba(0,92,255,0.28)',
+              }}
+            >
+              {/* cream ring */}
+              <span
+                aria-hidden
+                className="absolute rounded-[50%]"
+                style={{ inset: '7%', border: '2px solid #FEFFD7' }}
+              />
+              {/* stacked wordmark, recoloured cream */}
+              <span
+                role="img"
+                aria-label="OddlyCraft"
+                className="relative block h-[52%]"
+                style={{
+                  width: 'auto', aspectRatio: '527 / 333',
+                  backgroundColor: '#FEFFD7',
+                  WebkitMaskImage: 'url(/logo-stacked.png)',
+                  maskImage: 'url(/logo-stacked.png)',
+                  WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+                  WebkitMaskPosition: 'center', maskPosition: 'center',
+                  WebkitMaskSize: 'contain', maskSize: 'contain',
+                }}
+              />
+            </span>
+          </a>
         </div>
       </nav>
 
