@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import BookingSection from './BookingSection'
+import DanglingCharms from './DanglingCharms'
 import FooterNewsletter from './FooterNewsletter'
 import MobileNav from './MobileNav'
 import ShopDropdown from './ShopDropdown'
@@ -47,18 +48,19 @@ export default function HomePage() {
 
       {/* ── NAV (store awning) ── */}
       <nav className="sticky top-0 z-50">
+        <DanglingCharms />
         {/* Thin striped awning with scalloped bottom edge */}
         <div
-          className="relative h-4"
-          style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 48px, #fae8a2 48px 96px)' }}
+          className="relative h-5"
+          style={{ background: 'repeating-linear-gradient(90deg, #feffd7 0 56px, #fae8a2 56px 112px)' }}
         >
           <div
             aria-hidden
-            className="absolute left-0 right-0 top-full h-6 pointer-events-none"
+            className="absolute left-0 right-0 top-full h-7 pointer-events-none"
             style={{
               backgroundImage: 'url(/scallops.svg)',
               backgroundRepeat: 'repeat-x',
-              backgroundSize: '96px 24px',
+              backgroundSize: '112px 28px',
               backgroundPosition: 'left top',
             }}
           />
@@ -75,16 +77,28 @@ export default function HomePage() {
             <MobileNav />
           </div>
 
-          {/* Right: shopping bag */}
-          <div className="flex-1 flex items-center justify-end gap-4 sm:gap-5">
+          {/* Right: customer account + shopping basket */}
+          <div className="flex-1 flex items-center justify-end gap-5 sm:gap-6">
+            {/* Customer account */}
             <a
-              href="#book"
-              aria-label="Shopping bag"
+              href="#account"
+              aria-label="Account"
               className="inline-flex items-center"
               style={{ color: '#005CFF', textDecoration: 'none' }}
             >
-              <svg width="23" height="23" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12A1.125 1.125 0 0119.746 21H4.254a1.125 1.125 0 01-1.123-1.243l1.264-12A1.125 1.125 0 015.513 6.75h12.974c.576 0 1.059.435 1.119 1.007z" />
+              <svg width="29" height="29" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v1c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-1c0-2.66-5.33-4-8-4z" />
+              </svg>
+            </a>
+            {/* Shopping basket */}
+            <a
+              href="#book"
+              aria-label="Shopping basket"
+              className="inline-flex items-center"
+              style={{ color: '#005CFF', textDecoration: 'none' }}
+            >
+              <svg width="31" height="31" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.21 9l-4.38-6.56c-.19-.28-.51-.42-.83-.42-.32 0-.64.14-.83.43L6.79 9H2c-.55 0-1 .45-1 1 0 .09.01.18.04.27l2.54 9.27c.23.84 1 1.46 1.92 1.46h13c.92 0 1.69-.62 1.93-1.46l2.54-9.27L23 10c0-.55-.45-1-1-1h-4.79zM9 9l3-4.4L15 9H9zm3 8c-1.1 0-2-.9-2-2 0-1.1.9-2 2-2s2 .9 2 2c0 1.1-.9 2-2 2z" />
               </svg>
             </a>
           </div>
@@ -97,7 +111,7 @@ export default function HomePage() {
             style={{ top: '32px' }}
           >
             <span
-              className="relative inline-flex items-center justify-center h-16 sm:h-20"
+              className="relative inline-flex items-center justify-center h-16 sm:h-[4.5rem]"
               style={{
                 aspectRatio: '1.58 / 1',
                 background: '#005CFF',
@@ -130,43 +144,6 @@ export default function HomePage() {
           </a>
         </div>
       </nav>
-
-      {/* ── HERO VIDEO ── */}
-      <section
-        className="relative w-full overflow-hidden"
-        style={{ background: '#FEFBE3', height: 'min(96vh, 1000px)' }}
-        aria-label="OddlyCraft workshop video"
-      >
-        {/* Blurred ambient backdrop fills the width */}
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: 'blur(30px) brightness(0.9)', transform: 'scale(1.15)' }}
-          src="/hero-video.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0" style={{ background: 'rgba(0,92,255,0.06)' }} />
-
-        {/* Foreground portrait video, centered like a phone screen */}
-        <div className="relative h-full flex items-center justify-center py-6 sm:py-8">
-          <video
-            className="h-full w-auto object-contain rounded-3xl"
-            style={{
-              maxWidth: '90vw',
-              boxShadow: '0 28px 70px -14px rgba(0,36,107,0.5)',
-              border: '4px solid #FEFBE3',
-            }}
-            src="/hero-video.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        </div>
-      </section>
 
       {/* ── MARQUEE ── */}
       <div
@@ -265,7 +242,7 @@ export default function HomePage() {
 
       {/* ── FOOTER ── */}
       <footer className="pt-16 pb-8" style={{ background: '#FFEA6D', color: '#005CFF' }}>
-        <div className="w-full px-4 sm:px-6">
+        <div className="w-full px-6 sm:px-12 lg:px-20">
 
           {/* Big serif tagline — one line, thin, stretched full width */}
           <h2
@@ -356,7 +333,7 @@ export default function HomePage() {
           </div>
 
           {/* Wavy divider — animated scroll (left → right), full-bleed */}
-          <div className="wave-scroll mb-6 -mx-4 sm:-mx-6" aria-hidden="true" />
+          <div className="wave-scroll mb-6 -mx-6 sm:-mx-12 lg:-mx-20" aria-hidden="true" />
 
           {/* Bottom bar: policies + socials */}
           <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6 pt-2">

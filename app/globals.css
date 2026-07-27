@@ -58,6 +58,14 @@ body {
 .animate-float-r    { animation: float-r 5s ease-in-out infinite; }
 .animate-float-slow { animation: float   7s ease-in-out infinite; }
 
+/* ── Swing (hanging charms) ── */
+@keyframes swing {
+  0%, 100% { transform: rotate(-4deg); }
+  50%       { transform: rotate(4deg); }
+}
+.animate-swing      { animation: swing 4.5s ease-in-out infinite; }
+.animate-swing-slow { animation: swing 6.2s ease-in-out infinite; }
+
 /* ── Spin slow ── */
 @keyframes spin-slow {
   from { transform: rotate(0deg); }

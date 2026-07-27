@@ -21,15 +21,15 @@ export default function ShopDropdown() {
         aria-haspopup="menu"
         aria-expanded={open}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
+          display: 'inline-flex', alignItems: 'center', gap: 6,
           background: 'none', border: 'none', cursor: 'pointer',
-          color: BLUE, fontWeight: 500, fontSize: 16,
+          color: BLUE, fontWeight: 600, fontSize: 19,
           padding: '6px 4px', fontFamily: 'inherit',
         }}
       >
         Shop
         <svg
-          width="14" height="14" viewBox="0 0 24 24" fill="none"
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth={2.5}
           style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}
         >
