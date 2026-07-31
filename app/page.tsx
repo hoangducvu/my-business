@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import BookingSection from './BookingSection'
 import DanglingCharms from './DanglingCharms'
 import FooterNewsletter from './FooterNewsletter'
+import HeroCharms from './HeroCharms'
 import MobileNav from './MobileNav'
 import ShopDropdown from './ShopDropdown'
 
@@ -144,6 +145,9 @@ export default function HomePage() {
           </a>
         </div>
       </nav>
+
+      {/* ── HERO (charm wreath) ── */}
+      <HeroCharms />
 
       {/* ── MARQUEE ── */}
       <div

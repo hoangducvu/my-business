@@ -58,6 +58,14 @@ body {
 .animate-float-r    { animation: float-r 5s ease-in-out infinite; }
 .animate-float-slow { animation: float   7s ease-in-out infinite; }
 
+/* ── Text bob (hero letter-tile rows) — vertical only, no rotate, so the
+   words stay legible while still feeling alive ── */
+@keyframes text-bob {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+.animate-text-bob { animation: text-bob 3.6s ease-in-out infinite; }
+
 /* ── Swing (hanging charms) ── */
 @keyframes swing {
   0%, 100% { transform: rotate(-4deg); }
