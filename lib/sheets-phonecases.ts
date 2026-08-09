@@ -216,8 +216,23 @@ export async function deletePhonecase(brand: string, model: string): Promise<boo
 
 // Decrement the stock at a shop location (Plaza/Mercury) for a booked model.
 // Floors at 0 and keeps TOTAL in sync. Returns the new row, or null if not found.
-export async function deductStock(
+export function deductStock(
   brand: string, model: string, location: StockLocation, qty: number,
+): Promise<Phonecase | null> {
+  return adjustStock(brand, model, location, -Math.max(0, qty))
+}
+
+/** Puts stock back at a shop — used when a logged deduction is reverted. */
+export function restoreStock(
+  brand: string, model: string, location: StockLocation, qty: number,
+): Promise<Phonecase | null> {
+  return adjustStock(brand, model, location, Math.max(0, qty))
+}
+
+// Add `delta` to one shop's stock column. Floors at 0 and keeps TOTAL in sync.
+// Returns the new row, or null if the model isn't in the sheet.
+async function adjustStock(
+  brand: string, model: string, location: StockLocation, delta: number,
 ): Promise<Phonecase | null> {
   const sheets = sheetsClient()
   const id     = spreadsheetId()
@@ -227,7 +242,7 @@ export async function deductStock(
   const rows = res.data.values ?? []
   const idx  = rows.findIndex((r) => key(r[0]?.toString() ?? '', r[1]?.toString() ?? '') === key(brand, model))
   if (idx === -1) {
-    console.warn('[sheets-phonecases] deductStock: model not found:', brand, model)
+    console.warn('[sheets-phonecases] adjustStock: model not found:', brand, model)
     return null
   }
 
@@ -239,7 +254,7 @@ export async function deductStock(
     mercury: toInt(r[3]),
     alibaba: toInt(r[4]),
   }
-  pc[location] = Math.max(0, pc[location] - Math.max(0, qty))
+  pc[location] = Math.max(0, pc[location] + delta)
 
   const rowNum = idx + 2
   const values = rowValues(pc)

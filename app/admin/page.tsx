@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getActivityLabel, getLocationLabel } from '@/lib/labels'
 import { CHARMS, thumbUrl } from '@/app/charm-builder/charms'
 
@@ -55,7 +55,10 @@ interface Phonecase {
 }
 interface Deduction {
   time: string; brand: string; model: string; location: string
-  qty: number; source: string; note: string
+  qty: number; source: string; note: string; reverted: string
+  // Client-only: a local id so an optimistic row can be swapped for the saved
+  // one, and a flag while its write is still in flight.
+  key?: string; pending?: boolean
 }
 
 type Tab = 'inventory' | 'categories' | 'orders' | 'bookings' | 'phonecases' | 'history'
@@ -69,11 +72,16 @@ const slug = (s: string) =>
 const PC_SUFFIX = ['promax', 'plus', 'ultra', 'power', 'mini', 'air', 'pro', 'max', 'fe', '5g', '4g']
 const PC_PEEL = [...PC_SUFFIX].sort((a, b) => b.length - a.length) // longest-first end-peel
 
+// "rm" is the owner's shorthand for Redmi, typed at either end and with or
+// without a space — rm13, 13rm, "rm 13". Non-letter boundaries (not \b) so it
+// still fires when it's glued to the number.
+const PC_RM = /(^|[^a-z])rm(?=$|[^a-z])/
+
 function pcBrandHint(s: string): string | null {
   s = s.toLowerCase()
   if (/iphone|\bip\b|ipone/.test(s)) return 'iPhone'
   if (/samsung|galaxy/.test(s)) return 'Samsung'
-  if (/redmi|xiaomi|\bnote\b/.test(s)) return 'Redmi'
+  if (/redmi|xiaomi|\bnote\b/.test(s) || PC_RM.test(s)) return 'Redmi'
   return null
 }
 
@@ -82,6 +90,7 @@ function pcNorm(s: string): string {
   s = s.toLowerCase()
   s = s.replace(/iphone|ipone/g, ' ').replace(/samsung|galaxy|redmi|xiaomi/g, ' ')
   s = s.replace(/\bip\b/g, ' ')
+  s = s.replace(new RegExp(PC_RM.source, 'g'), '$1 ')
   s = s.replace(/(\d)\s*\+/g, '$1plus').replace(/\+/g, ' plus ')
   s = s.replace(/pro\s*max/g, 'promax')
   s = s.replace(/(^|[^a-z])(promax|prmx|prm|pmax|pm)(?=$|[^a-z])/g, '$1promax')
@@ -161,15 +170,21 @@ function pcExpand(model: string): string[] {
   return [...keys]
 }
 
+// iPhone is what the shop sells most, so a bare number means iPhone. Other
+// brands are reached by naming them ("rm 13", "redmi 13", "note 13", "a23").
+const PC_DEFAULT_BRAND = 'iPhone'
+
 // Models whose variant-set matches the query, brand-filtered when the query
-// names a brand. Empty = no match; length > 1 = ambiguous (let the owner pick).
+// names a brand — and defaulted to iPhone when it doesn't. Empty = no match;
+// length > 1 = genuinely ambiguous (let the owner pick).
 function pcMatch(query: string, list: Phonecase[]): Phonecase[] {
   const k = pcCanonical(query)
   if (!k) return []
-  const brand = pcBrandHint(query)
-  let ms = list.filter((p) => pcExpand(p.model).includes(k))
-  if (brand && ms.some((p) => p.brand === brand)) ms = ms.filter((p) => p.brand === brand)
-  return ms
+  const brand = pcBrandHint(query) ?? PC_DEFAULT_BRAND
+  const ms = list.filter((p) => pcExpand(p.model).includes(k))
+  // Only narrow when that brand actually has a match — "a23" (Samsung-only)
+  // still resolves under the iPhone default.
+  return ms.some((p) => p.brand === brand) ? ms.filter((p) => p.brand === brand) : ms
 }
 
 export default function AdminPage() {
@@ -287,25 +302,90 @@ export default function AdminPage() {
     } finally { setBusy(false) }
   }
 
+  // Applies a stock change to one model locally. Used to move the UI the instant
+  // a button is tapped, and to roll it back if the write turns out to fail.
+  const bumpStock = (brand: string, model: string, location: 'plaza' | 'mercury', delta: number) =>
+    setPhonecases((list) => list.map((p) => {
+      if (p.brand !== brand || p.model !== model) return p
+      const n: Phonecase = { ...p }
+      n[location] = Math.max(0, (Number(n[location]) || 0) + delta)
+      n.total = (Number(n.plaza) || 0) + (Number(n.mercury) || 0) + (Number(n.alibaba) || 0)
+      return n
+    }))
+
+  const replacePhonecase = (pc: Phonecase) =>
+    setPhonecases((list) => list.map((p) => (p.brand === pc.brand && p.model === pc.model ? pc : p)))
+
+  // Stock writes are read-modify-write on a Google Sheet, so two of them racing
+  // would lose one deduction. They queue here — one request at a time — while the
+  // UI has already moved on, which is what makes rapid-fire selling feel instant.
+  const writeQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const enqueue = (fn: () => Promise<void>) => {
+    writeQueue.current = writeQueue.current.then(fn, fn).catch(() => {})
+  }
+
   // Deduct one unit of a model from a shop (Plaza/Mercury) and log it to history.
-  // Returns true on success so callers can react (e.g. clear the search box).
-  async function deductModel(brand: string, model: string, location: 'plaza' | 'mercury', qty = 1) {
-    setBusy(true)
-    try {
+  // Optimistic: state moves now, the sheet catches up in the background, and a
+  // failure rolls the row (and its history entry) back with an error flash.
+  function deductModel(brand: string, model: string, location: 'plaza' | 'mercury', qty = 1) {
+    const pc = phonecases.find((p) => p.brand === brand && p.model === model)
+    const left = Math.max(0, ((Number(pc?.plaza) || 0) + (Number(pc?.mercury) || 0) + (Number(pc?.alibaba) || 0)) - qty)
+    const key = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    bumpStock(brand, model, location, -qty)
+    setDeductions((list) => [
+      { time: new Date().toISOString(), brand, model, location, qty, source: 'manual', note: '', reverted: '', key, pending: true },
+      ...list,
+    ])
+    flash(`−${qty} ${model} · ${location} → ${left} left`)
+
+    enqueue(async () => {
       const res = await fetch('/api/admin/phonecase-deduct', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brand, model, location, qty }),
-      })
-      if (res.ok) {
-        const { phonecase } = await res.json()
-        flash(`−${qty} ${model} · ${location} → ${phonecase?.total ?? '?'} left`)
-        await Promise.all([loadPhonecases(), loadDeductions()])
-        return true
+      }).catch(() => null)
+
+      if (res?.ok) {
+        const { phonecase, deduction } = await res.json()
+        if (phonecase) replacePhonecase(phonecase)
+        // Swap in the saved row so its timestamp can anchor a later Revert.
+        setDeductions((list) => list.map((d) => (d.key === key ? { ...deduction, key } : d)))
+        return
       }
-      flash((await res.json().catch(() => ({}))).error ?? 'Deduct failed')
-      return false
-    } finally { setBusy(false) }
+      bumpStock(brand, model, location, qty)
+      setDeductions((list) => list.filter((d) => d.key !== key))
+      flash((await res?.json().catch(() => ({})))?.error ?? 'Deduct failed — stock restored')
+    })
+  }
+
+  // Undo a logged deduction: put the stock back and mark the history row reverted.
+  function revertDeduction(d: Deduction) {
+    if (d.pending || d.reverted) return
+    const loc = d.location === 'plaza' || d.location === 'mercury' ? d.location : null
+    if (!loc) { flash('That entry has no shop to restore to'); return }
+    const same = (x: Deduction) => x.time === d.time && x.brand === d.brand && x.model === d.model
+
+    bumpStock(d.brand, d.model, loc, d.qty)
+    setDeductions((list) => list.map((x) => (same(x) ? { ...x, reverted: new Date().toISOString() } : x)))
+    flash(`↩ Reverted −${d.qty} ${d.model} · ${loc}`)
+
+    enqueue(async () => {
+      const res = await fetch('/api/admin/phonecase-deduct', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ time: d.time, brand: d.brand, model: d.model }),
+      }).catch(() => null)
+
+      if (res?.ok) {
+        const { phonecase } = await res.json()
+        if (phonecase) replacePhonecase(phonecase)
+        return
+      }
+      bumpStock(d.brand, d.model, loc, -d.qty)
+      setDeductions((list) => list.map((x) => (same(x) ? { ...x, reverted: '' } : x)))
+      flash((await res?.json().catch(() => ({})))?.error ?? 'Revert failed')
+    })
   }
 
   async function markBookingDone(id: string, name: string) {
@@ -389,7 +469,7 @@ export default function AdminPage() {
     tab={tab} setTab={setTab} logout={logout} msg={msg}
     bookings={bookings} loadBookings={loadBookings} markBookingDone={markBookingDone}
     phonecases={phonecases} savePhonecase={savePhonecase} loadPhonecases={loadPhonecases}
-    deductions={deductions} deductModel={deductModel} loadDeductions={loadDeductions}
+    deductions={deductions} deductModel={deductModel} loadDeductions={loadDeductions} revertDeduction={revertDeduction}
     charms={charms} categories={categories} saveCharm={saveCharm} deleteCharm={deleteCharm}
     addCategory={addCategory} deleteCategory={deleteCategory}
     orders={orders} loadOrders={loadOrders} busy={busy}
@@ -402,7 +482,7 @@ function Dashboard({
   tab, setTab, logout, msg,
   bookings, loadBookings, markBookingDone,
   phonecases, savePhonecase, loadPhonecases,
-  deductions, deductModel, loadDeductions,
+  deductions, deductModel, loadDeductions, revertDeduction,
   charms, categories, saveCharm, deleteCharm,
   addCategory, deleteCategory,
   orders, loadOrders, busy,
@@ -410,7 +490,8 @@ function Dashboard({
   tab: Tab; setTab: (t: Tab) => void; logout: () => void; msg: string
   bookings: Booking[]; loadBookings: () => void; markBookingDone: (id: string, name: string) => void
   phonecases: Phonecase[]; savePhonecase: (p: Phonecase) => Promise<void> | void; loadPhonecases: () => void
-  deductions: Deduction[]; deductModel: (brand: string, model: string, location: 'plaza' | 'mercury', qty?: number) => Promise<boolean>; loadDeductions: () => void
+  deductions: Deduction[]; deductModel: (brand: string, model: string, location: 'plaza' | 'mercury', qty?: number) => void
+  loadDeductions: () => void; revertDeduction: (d: Deduction) => void
   charms: Charm[]; categories: string[]; saveCharm: (c: Charm) => void; deleteCharm: (id: string, name: string) => void
   addCategory: (n: string) => void; deleteCategory: (n: string) => void
   orders: Order[]; loadOrders: () => void; busy: boolean
@@ -440,7 +521,7 @@ function Dashboard({
         <div style={{ background: CARD, borderRadius: isMobile ? 14 : '0 14px 14px 14px', marginTop: isMobile ? 10 : 0, padding: isMobile ? 14 : 20, boxShadow: '0 2px 20px rgba(123,26,56,.07)' }}>
           {tab === 'bookings'   && <BookingsTab bookings={bookings} onRefresh={loadBookings} onMarkDone={markBookingDone} busy={busy} isMobile={isMobile} />}
           {tab === 'phonecases' && <PhonecasesTab phonecases={phonecases} onSave={savePhonecase} onDeduct={deductModel} onRefresh={loadPhonecases} busy={busy} isMobile={isMobile} />}
-          {tab === 'history'    && <HistoryTab deductions={deductions} onRefresh={loadDeductions} isMobile={isMobile} />}
+          {tab === 'history'    && <HistoryTab deductions={deductions} onRefresh={loadDeductions} onRevert={revertDeduction} isMobile={isMobile} />}
           {tab === 'inventory'  && <InventoryTab charms={charms} categories={categories} onSave={saveCharm} onDelete={deleteCharm} busy={busy} isMobile={isMobile} />}
           {tab === 'categories' && <CategoriesTab categories={categories} onAdd={addCategory} onDelete={deleteCategory} busy={busy} />}
           {tab === 'orders'     && <OrdersTab orders={orders} onRefresh={loadOrders} isMobile={isMobile} />}
@@ -821,9 +902,10 @@ function BookingsTab({ bookings, onRefresh, onMarkDone, busy, isMobile }: {
 // ─── Phone cases tab ───────────────────────────────────────────────────────
 function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile }: {
   phonecases: Phonecase[]; onSave: (p: Phonecase) => Promise<void> | void
-  onDeduct: (brand: string, model: string, location: 'plaza' | 'mercury', qty?: number) => Promise<boolean>
+  onDeduct: (brand: string, model: string, location: 'plaza' | 'mercury', qty?: number) => void
   onRefresh: () => void; busy: boolean; isMobile: boolean
 }) {
+  const sellRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState<Record<string, Phonecase>>({})
   const [q, setQ] = useState('')
   const [sellQ, setSellQ] = useState('')
@@ -849,20 +931,24 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
   const sum = (p: { plaza: number; mercury: number; alibaba: number }) =>
     (Number(p.plaza) || 0) + (Number(p.mercury) || 0) + (Number(p.alibaba) || 0)
 
-  // Quick "sold one" — deduct 1 from a shop via the server (logs to history too).
-  // Clears any pending draft first so the reloaded row replaces the edited values.
+  // Quick "sold one" — deduct 1 from a shop. The write happens in the background,
+  // so these stay tappable back-to-back; only a zero stock disables them.
+  // Clears any pending draft first so the updated row replaces the edited values.
   const deductOne = (p: Phonecase, loc: 'plaza' | 'mercury') => {
-    if (busy || (Number(p[loc]) || 0) <= 0) return
+    if ((Number(p[loc]) || 0) <= 0) return
     setDraft((d) => { const n = { ...d }; delete n[keyOf(p)]; return n })
     onDeduct(p.brand, p.model, loc, 1)
   }
 
   // ── Sell by name: fuzzy-match loose owner input to a model, then deduct 1 ──
+  // Empties the box and keeps focus so the next model can be typed straight away.
   const sellFrom = (p: Phonecase): 'plaza' | 'mercury' | null =>
     (Number(p.plaza) || 0) > 0 ? 'plaza' : (Number(p.mercury) || 0) > 0 ? 'mercury' : null
   const sell = (p: Phonecase, loc: 'plaza' | 'mercury') => {
-    if (busy || (Number(p[loc]) || 0) <= 0) return
+    if ((Number(p[loc]) || 0) <= 0) return
     onDeduct(p.brand, p.model, loc, 1)
+    setSellQ('')
+    sellRef.current?.focus()
   }
   const matches = sellQ.trim() ? pcMatch(sellQ, phonecases) : []
 
@@ -885,9 +971,9 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
       {/* Sell by name — type a model, deduct 1 */}
       <div style={{ background: '#FBEEF3', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
         <p style={{ margin: '0 0 4px', fontWeight: 800, color: MAROON, fontSize: 14 }}>🔻 Sold a case? Type the model to deduct 1</p>
-        <p style={{ margin: '0 0 10px', color: ACCENT, fontSize: 12 }}>Flexible: <em>17</em>, <em>17pro</em>, <em>17 pro max</em>, <em>17pm</em>, <em>16 plus</em>, <em>a23</em>, <em>note 13 pro</em>. Press Enter to sell the single match (Plaza first).</p>
+        <p style={{ margin: '0 0 10px', color: ACCENT, fontSize: 12 }}>Flexible: <em>17</em>, <em>17pro</em>, <em>17 pro max</em>, <em>17pm</em>, <em>16 plus</em>, <em>a23</em>, <em>note 13 pro</em>. A plain number means <strong>iPhone</strong> — add <em>rm</em> or <em>redmi</em> at either end for Redmi (<em>rm 13</em>, <em>13 rm</em>). Press Enter to sell the single match (Plaza first); the box clears itself for the next one.</p>
         <input
-          value={sellQ} placeholder="e.g. 17 pro max"
+          ref={sellRef} value={sellQ} placeholder="e.g. 17 pro max" autoComplete="off"
           onChange={(e) => setSellQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && matches.length === 1) { const loc = sellFrom(matches[0]); if (loc) sell(matches[0], loc) } }}
           style={{ ...inpFull, fontSize: 16 }} />
@@ -904,8 +990,8 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
                     <div style={{ fontSize: 15, fontWeight: 800, color: INK }}>{p.model} <span style={{ color: ACCENT, fontWeight: 600, fontSize: 12 }}>· {sum(p)} in stock</span></div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button disabled={busy || plaza <= 0} onClick={() => sell(p, 'plaza')} style={sellBtn(!busy && plaza > 0)}>Plaza −1 <b>({plaza})</b></button>
-                    <button disabled={busy || mercury <= 0} onClick={() => sell(p, 'mercury')} style={sellBtn(!busy && mercury > 0)}>Mercury −1 <b>({mercury})</b></button>
+                    <button disabled={plaza <= 0} onClick={() => sell(p, 'plaza')} style={sellBtn(plaza > 0)}>Plaza −1 <b>({plaza})</b></button>
+                    <button disabled={mercury <= 0} onClick={() => sell(p, 'mercury')} style={sellBtn(mercury > 0)}>Mercury −1 <b>({mercury})</b></button>
                   </div>
                 </div>
               )
@@ -944,12 +1030,12 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Plaza</label>
                     <input type="number" min="0" value={v.plaza} onChange={(e) => edit(p, { plaza: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
-                    <button disabled={busy || (Number(v.plaza) || 0) <= 0} onClick={() => deductOne(p, 'plaza')} style={deductBtn(!busy && (Number(v.plaza) || 0) > 0)}>−1 sold</button>
+                    <button disabled={(Number(v.plaza) || 0) <= 0} onClick={() => deductOne(p, 'plaza')} style={deductBtn((Number(v.plaza) || 0) > 0)}>−1 sold</button>
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Mercury</label>
                     <input type="number" min="0" value={v.mercury} onChange={(e) => edit(p, { mercury: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inpFull} />
-                    <button disabled={busy || (Number(v.mercury) || 0) <= 0} onClick={() => deductOne(p, 'mercury')} style={deductBtn(!busy && (Number(v.mercury) || 0) > 0)}>−1 sold</button>
+                    <button disabled={(Number(v.mercury) || 0) <= 0} onClick={() => deductOne(p, 'mercury')} style={deductBtn((Number(v.mercury) || 0) > 0)}>−1 sold</button>
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={mlabel}>Alibaba</label>
@@ -982,8 +1068,8 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
                   <td style={td}><input type="number" min="0" value={v.alibaba} onChange={(e) => edit(p, { alibaba: parseInt(e.target.value) || 0 })} onBlur={() => commit(p)} style={inp(65)} /></td>
                   <td style={{ ...td, fontWeight: 800 }}>{sum(v)}</td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <button disabled={busy || (Number(p.plaza) || 0) <= 0} onClick={() => deductOne(p, 'plaza')} style={sellBtn(!busy && (Number(p.plaza) || 0) > 0)}>Plaza −1</button>
-                    <button disabled={busy || (Number(p.mercury) || 0) <= 0} onClick={() => deductOne(p, 'mercury')} style={{ ...sellBtn(!busy && (Number(p.mercury) || 0) > 0), marginLeft: 6 }}>Merc −1</button>
+                    <button disabled={(Number(p.plaza) || 0) <= 0} onClick={() => deductOne(p, 'plaza')} style={sellBtn((Number(p.plaza) || 0) > 0)}>Plaza −1</button>
+                    <button disabled={(Number(p.mercury) || 0) <= 0} onClick={() => deductOne(p, 'mercury')} style={{ ...sellBtn((Number(p.mercury) || 0) > 0), marginLeft: 6 }}>Merc −1</button>
                   </td>
                 </tr>
               )
@@ -1025,50 +1111,59 @@ function PhonecasesTab({ phonecases, onSave, onDeduct, onRefresh, busy, isMobile
 }
 
 // ─── History tab: log of every phone-case deduction (manual + paid bookings) ─
-function HistoryTab({ deductions, onRefresh, isMobile }: {
-  deductions: Deduction[]; onRefresh: () => void; isMobile: boolean
+function HistoryTab({ deductions, onRefresh, onRevert, isMobile }: {
+  deductions: Deduction[]; onRefresh: () => void; onRevert: (d: Deduction) => void; isMobile: boolean
 }) {
+  const rowKey = (d: Deduction, i: number) => d.key ?? `${d.time}|${d.brand}|${d.model}|${i}`
+  // A deduction can be undone once its log row exists and hasn't been undone already.
+  const canRevert = (d: Deduction) => !d.pending && !d.reverted
+  const revertLabel = (d: Deduction) => (d.reverted ? '↩ Reverted' : d.pending ? 'Saving…' : '↩ Revert')
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h2 style={{ margin: 0, color: INK, fontSize: 18 }}>Deduction history <span style={{ color: ACCENT, fontWeight: 600, fontSize: 14 }}>({deductions.length})</span></h2>
         <button onClick={onRefresh} style={{ padding: '6px 14px', background: SOFT, color: MAROON, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
       </div>
-      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Every phone-case stock deduction, newest first — whether you sold one from the Phone Cases tab (✋ manual) or a customer paid for a case booking (📅 booking).</p>
+      <p style={{ margin: '0 0 16px', color: ACCENT, fontSize: 13 }}>Every phone-case stock deduction, newest first — whether you sold one from the Phone Cases tab (✋ manual) or a customer paid for a case booking (📅 booking). Deducted by mistake? Hit <strong>↩ Revert</strong> and the stock goes straight back. History keeps the last <strong>7 days</strong> and clears itself after that.</p>
 
       {deductions.length === 0 ? (
         <p style={{ color: ACCENT, fontSize: 13 }}>No deductions logged yet. Selling a case or a paid phone-case booking will show up here.</p>
       ) : isMobile ? (
         <div>
           {deductions.map((d, i) => (
-            <div key={i} style={mcard}>
+            <div key={rowKey(d, i)} style={{ ...mcard, opacity: d.reverted ? 0.6 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: INK }}>{d.brand} {d.model}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: INK, textDecoration: d.reverted ? 'line-through' : 'none' }}>{d.brand} {d.model}</div>
                   <div style={{ fontSize: 12, color: ACCENT, marginTop: 2 }}>{d.source === 'booking' ? '📅 booking' : '✋ manual'} · {d.location}{d.note ? ` · ${d.note}` : ''}</div>
                   <div style={{ fontSize: 12, color: ACCENT, marginTop: 2 }}>🕒 {fmtFull(d.time)}</div>
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: MAROON, flexShrink: 0 }}>−{d.qty}</div>
               </div>
+              <button disabled={!canRevert(d)} onClick={() => onRevert(d)} style={{ ...revertBtn(canRevert(d)), width: '100%', marginTop: 10, padding: '9px' }}>{revertLabel(d)}</button>
             </div>
           ))}
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
             <thead><tr style={{ textAlign: 'left', color: ACCENT }}>
-              <Th>Time</Th><Th>Brand</Th><Th>Model</Th><Th>Shop</Th><Th>Source</Th><Th>Note</Th><Th>Qty</Th>
+              <Th>Time</Th><Th>Brand</Th><Th>Model</Th><Th>Shop</Th><Th>Source</Th><Th>Note</Th><Th>Qty</Th><Th>Undo</Th>
             </tr></thead>
             <tbody>
               {deductions.map((d, i) => (
-                <tr key={i} style={{ borderTop: `1px solid ${BORDER}` }}>
+                <tr key={rowKey(d, i)} style={{ borderTop: `1px solid ${BORDER}`, opacity: d.reverted ? 0.6 : 1 }}>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtFull(d.time)}</td>
                   <td style={td}>{d.brand}</td>
-                  <td style={{ ...td, fontWeight: 700 }}>{d.model}</td>
+                  <td style={{ ...td, fontWeight: 700, textDecoration: d.reverted ? 'line-through' : 'none' }}>{d.model}</td>
                   <td style={{ ...td, textTransform: 'capitalize' }}>{d.location}</td>
                   <td style={td}>{d.source === 'booking' ? '📅 booking' : '✋ manual'}</td>
                   <td style={{ ...td, color: ACCENT }}>{d.note || '—'}</td>
                   <td style={{ ...td, fontWeight: 800, color: MAROON }}>−{d.qty}</td>
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                    <button disabled={!canRevert(d)} onClick={() => onRevert(d)} style={revertBtn(canRevert(d))}>{revertLabel(d)}</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1180,6 +1275,9 @@ const mlabel: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight
 const btn = (on: boolean, primary = false): React.CSSProperties => ({ padding: '8px 14px', background: on ? (primary ? MAROON : '#7B1A38') : '#E0D0D4', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
 // Compact "sold one" button under a shop's stock input on mobile cards.
 const deductBtn = (on: boolean): React.CSSProperties => ({ width: '100%', marginTop: 6, padding: '8px', background: on ? '#fff' : '#F5EEF1', color: on ? '#C0392B' : '#C9AEB8', border: `1px solid ${on ? '#E8B4B4' : BORDER}`, borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed' })
+// "Undo this deduction" button in the history — outlined green so it reads as the
+// opposite of the red/maroon sell buttons.
+const revertBtn = (on: boolean): React.CSSProperties => ({ padding: '7px 12px', background: on ? '#fff' : '#F1EEF0', color: on ? '#1E6B2E' : '#B6AEB2', border: `1px solid ${on ? '#A9D6B4' : BORDER}`, borderRadius: 8, fontSize: 12.5, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' })
 // Solid "sell −1" button used in the sell-by-name matches and desktop table.
 const sellBtn = (on: boolean): React.CSSProperties => ({ padding: '7px 10px', background: on ? MAROON : '#E7D3DA', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 800, cursor: on ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' })
 function fmt(iso: string) {
