@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { sheetsClient, spreadsheetId, once } from '@/lib/google-sheets'
 
 // ─── Phone case deduction log (Google Sheets) ────────────────────────────────
 // An append-only history of every stock deduction — whether an admin tapped a
@@ -10,19 +10,6 @@ import { google } from 'googleapis'
 const SHEET = 'Phonecase_Deductions'
 const HEADER = ['time', 'brand', 'model', 'location', 'qty', 'source', 'note']
 
-function spreadsheetId() {
-  return process.env.GOOGLE_SPREADSHEET_ID!
-}
-
-function getSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  })
-  return google.sheets({ version: 'v4', auth })
-}
-
 export interface Deduction {
   time:     string
   brand:    string
@@ -33,29 +20,32 @@ export interface Deduction {
   note:     string
 }
 
-export async function ensureDeductionSheet(): Promise<void> {
-  const sheets = getSheets()
-  const id     = spreadsheetId()
-  const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
-  if (exists) return
+/** Runs once per process rather than ahead of every append and every log read. */
+export function ensureDeductionSheet(): Promise<void> {
+  return once(SHEET, async () => {
+    const sheets = sheetsClient()
+    const id     = spreadsheetId()
+    const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
+    const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
+    if (exists) return
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: id,
-    requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: id,
+      requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    })
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${SHEET}!A1:G1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HEADER] },
+    })
+    console.log('[sheets-phonecase-log] Created Phonecase_Deductions sheet')
   })
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: id,
-    range: `${SHEET}!A1:G1`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [HEADER] },
-  })
-  console.log('[sheets-phonecase-log] Created Phonecase_Deductions sheet')
 }
 
 export async function appendDeduction(d: Omit<Deduction, 'time'> & { time?: string }): Promise<void> {
   await ensureDeductionSheet()
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   const time = d.time ?? new Date().toISOString()
   await sheets.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
@@ -70,7 +60,7 @@ export async function appendDeduction(d: Omit<Deduction, 'time'> & { time?: stri
 // Recent deductions, newest first. Returns [] on any error so the admin tab
 // still renders if the log can't be read.
 export async function getDeductions(limit = 100): Promise<Deduction[]> {
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: spreadsheetId(),

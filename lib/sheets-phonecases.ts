@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { sheetsClient, spreadsheetId, once, cachedRead, invalidate } from '@/lib/google-sheets'
 import { PHONECASE_SEED } from '@/lib/phonecase-seed'
 
 // ─── Phone case stock (Google Sheets) ────────────────────────────────────────
@@ -11,18 +11,8 @@ import { PHONECASE_SEED } from '@/lib/phonecase-seed'
 const SHEET = 'Phonecase_Inventory'
 const HEADER = ['brand', 'model', 'plaza', 'mercury', 'alibaba', 'total']
 
-function spreadsheetId() {
-  return process.env.GOOGLE_SPREADSHEET_ID!
-}
-
-function getSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  })
-  return google.sheets({ version: 'v4', auth })
-}
+const CACHE_KEY = 'phonecases'
+const CACHE_TTL = 30_000
 
 export interface Phonecase {
   brand:   string
@@ -52,36 +42,42 @@ function rowValues(pc: Omit<Phonecase, 'total'>): (string | number)[] {
 // Create the sheet and seed it from the owner's stock file if it doesn't exist.
 // If the sheet already exists in the old 7-column layout (with a Nhà Ngọc column),
 // migrate it in place: drop that column and recompute totals.
-export async function ensurePhonecaseSheet(): Promise<void> {
-  const sheets = getSheets()
-  const id     = spreadsheetId()
-  const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
+//
+// Runs once per process: the check costs two round-trips and used to run on every
+// booking-form load, long after the sheet had settled into its final shape.
+export function ensurePhonecaseSheet(): Promise<void> {
+  return once(SHEET, async () => {
+    const sheets = sheetsClient()
+    const id     = spreadsheetId()
+    const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
+    const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
 
-  if (exists) {
-    const sheetId = meta.data.sheets?.find((s) => s.properties?.title === SHEET)?.properties?.sheetId
-    await migrateDropNhaNgoc(sheets, id, sheetId ?? null)
-    return
-  }
+    if (exists) {
+      const sheetId = meta.data.sheets?.find((s) => s.properties?.title === SHEET)?.properties?.sheetId
+      await migrateDropNhaNgoc(sheets, id, sheetId ?? null)
+      return
+    }
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: id,
-    requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: id,
+      requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    })
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${SHEET}!A1:F1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HEADER] },
+    })
+    const rows = PHONECASE_SEED.map((s) => rowValues({ ...s }))
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: id,
+      range: `${SHEET}!A2`,
+      valueInputOption: 'RAW',
+      requestBody: { values: rows },
+    })
+    invalidate(CACHE_KEY)
+    console.log(`[sheets-phonecases] Created + seeded ${SHEET} with ${rows.length} models`)
   })
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: id,
-    range: `${SHEET}!A1:F1`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [HEADER] },
-  })
-  const rows = PHONECASE_SEED.map((s) => rowValues({ ...s }))
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: id,
-    range: `${SHEET}!A2`,
-    valueInputOption: 'RAW',
-    requestBody: { values: rows },
-  })
-  console.log(`[sheets-phonecases] Created + seeded ${SHEET} with ${rows.length} models`)
 }
 
 // One-time migration: the sheet used to be
@@ -90,7 +86,7 @@ export async function ensurePhonecaseSheet(): Promise<void> {
 // recompute totals (the old total counted the removed column). Idempotent —
 // once the header no longer contains "nhaNgoc" it does nothing.
 async function migrateDropNhaNgoc(
-  sheets: ReturnType<typeof getSheets>,
+  sheets: ReturnType<typeof sheetsClient>,
   id: string,
   sheetId: number | null,
 ): Promise<void> {
@@ -130,13 +126,14 @@ async function migrateDropNhaNgoc(
       requestBody: { values: recomputed },
     })
   }
+  invalidate(CACHE_KEY)
   console.log(`[sheets-phonecases] Migrated ${SHEET}: dropped Nhà Ngọc column`)
 }
 
-export async function getPhonecases(): Promise<Phonecase[]> {
-  const sheets = getSheets()
-  try {
-    const res = await sheets.spreadsheets.values.get({
+/** `fresh` skips the cache — /admin passes it so a just-saved edit reads back. */
+export async function getPhonecases(opts: { fresh?: boolean } = {}): Promise<Phonecase[]> {
+  const load = async (): Promise<Phonecase[]> => {
+    const res = await sheetsClient().spreadsheets.values.get({
       spreadsheetId: spreadsheetId(),
       range: `${SHEET}!A2:F`,
     })
@@ -150,6 +147,13 @@ export async function getPhonecases(): Promise<Phonecase[]> {
         alibaba: toInt(r[4]),
         total:   toInt(r[2]) + toInt(r[3]) + toInt(r[4]),
       }))
+  }
+  try {
+    if (opts.fresh) {
+      invalidate(CACHE_KEY)
+      return await load()
+    }
+    return await cachedRead(CACHE_KEY, CACHE_TTL, load)
   } catch (err) {
     console.error('[sheets-phonecases] getPhonecases read error:', err)
     return []
@@ -158,7 +162,7 @@ export async function getPhonecases(): Promise<Phonecase[]> {
 
 // Find the 1-based sheet row for a brand+model, or -1.
 async function findRow(brand: string, model: string): Promise<number> {
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
     range: `${SHEET}!A2:B`,
@@ -171,7 +175,7 @@ async function findRow(brand: string, model: string): Promise<number> {
 // Add a new model or overwrite an existing one (matched on brand+model).
 export async function upsertPhonecase(pc: Omit<Phonecase, 'total'>): Promise<void> {
   await ensurePhonecaseSheet()
-  const sheets  = getSheets()
+  const sheets  = sheetsClient()
   const id      = spreadsheetId()
   const rowNum  = await findRow(pc.brand, pc.model)
   const values  = [rowValues(pc)]
@@ -185,10 +189,11 @@ export async function upsertPhonecase(pc: Omit<Phonecase, 'total'>): Promise<voi
       spreadsheetId: id, range: `${SHEET}!A${rowNum}:F${rowNum}`, valueInputOption: 'RAW', requestBody: { values },
     })
   }
+  invalidate(CACHE_KEY)
 }
 
 export async function deletePhonecase(brand: string, model: string): Promise<boolean> {
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   const id     = spreadsheetId()
   const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
   const sheetId = meta.data.sheets?.find((s) => s.properties?.title === SHEET)?.properties?.sheetId
@@ -205,6 +210,7 @@ export async function deletePhonecase(brand: string, model: string): Promise<boo
       }],
     },
   })
+  invalidate(CACHE_KEY)
   return true
 }
 
@@ -213,7 +219,7 @@ export async function deletePhonecase(brand: string, model: string): Promise<boo
 export async function deductStock(
   brand: string, model: string, location: StockLocation, qty: number,
 ): Promise<Phonecase | null> {
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   const id     = spreadsheetId()
   const res    = await sheets.spreadsheets.values.get({
     spreadsheetId: id, range: `${SHEET}!A2:F`,
@@ -240,5 +246,6 @@ export async function deductStock(
   await sheets.spreadsheets.values.update({
     spreadsheetId: id, range: `${SHEET}!A${rowNum}:F${rowNum}`, valueInputOption: 'RAW', requestBody: { values: [values] },
   })
+  invalidate(CACHE_KEY)
   return { ...pc, total: pc.plaza + pc.mercury + pc.alibaba }
 }
