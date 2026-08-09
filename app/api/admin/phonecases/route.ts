@@ -7,7 +7,7 @@ export async function GET() {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   try {
     await ensurePhonecaseSheet()
-    return NextResponse.json({ phonecases: await getPhonecases() })
+    return NextResponse.json({ phonecases: await getPhonecases({ fresh: true }) })
   } catch (err) {
     console.error('[/api/admin/phonecases] GET error:', err)
     return NextResponse.json({ error: 'Could not read phone cases.' }, { status: 502 })

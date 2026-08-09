@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
   try {
-    const charms = await getCharmCatalog()
+    const charms = await getCharmCatalog({ fresh: true })
     return NextResponse.json({ charms })
   } catch (err) {
     console.error('[/api/admin/inventory] read error:', err)
@@ -33,13 +33,14 @@ export async function PUT(request: Request) {
   }
 
   try {
+    // Price is no longer client-supplied — it follows the special flag.
     await upsertCharm({
       id,
       name,
       category: (b.category ?? 'Custom').toString().trim() || 'Custom',
-      price:    Math.max(0, Number(b.price) || 0),
       imageUrl: (b.imageUrl ?? '').toString().trim(),
       quantity: Math.max(0, parseInt((b.quantity ?? '0').toString(), 10) || 0),
+      special:  b.special === true || b.special === 'true',
     })
     return NextResponse.json({ ok: true })
   } catch (err) {

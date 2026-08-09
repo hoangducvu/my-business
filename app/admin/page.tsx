@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getActivityLabel, getLocationLabel } from '@/lib/labels'
-import { DEFAULT_CHARMS } from '@/app/charm-builder/charms'
+import { CHARMS, thumbUrl } from '@/app/charm-builder/charms'
 
 // Switches table layouts to stacked cards on phones so nothing needs sideways scrolling.
 function useIsMobile(bp = 768) {
@@ -17,7 +17,7 @@ function useIsMobile(bp = 768) {
 }
 
 // emoji/bg fallback for charms with no uploaded image (built-in charms only)
-const CHARM_FACE = Object.fromEntries(DEFAULT_CHARMS.map((c) => [c.id, { emoji: c.emoji, bg: c.bg }]))
+const CHARM_FACE = Object.fromEntries(CHARMS.map((c) => [c.id, { emoji: c.emoji, bg: c.bg }]))
 
 // ─── Brand palette (matches the rest of the site) ────────────────────────────
 const MAROON = '#7B1A38'
@@ -32,9 +32,10 @@ interface Charm {
   id: string
   name: string
   category: string
-  price: number
   imageUrl: string
   quantity: number
+  /** Special charms cost €6 instead of the standard €4. */
+  special: boolean
 }
 interface OrderItem { id: string; name: string; qty: number; imageUrl: string }
 interface OrderFace { id: string; name: string; imageUrl: string }
@@ -192,7 +193,7 @@ export default function AdminPage() {
     const res = await fetch('/api/admin/inventory')
     if (res.status === 401) { setAuthed(false); return false }
     const data = await res.json()
-    setCharms((data.charms ?? []).map((c: Charm) => ({ ...c, price: Number(c.price) || 0, quantity: Number(c.quantity) || 0 })))
+    setCharms((data.charms ?? []).map((c: Charm) => ({ ...c, quantity: Number(c.quantity) || 0, special: c.special === true })))
     setAuthed(true)
     return true
   }, [])
@@ -449,12 +450,41 @@ function Dashboard({
   )
 }
 
+/**
+ * Marks a charm as special. There is no price field any more — a charm is €4,
+ * or €6 when this is ticked, and the builder and checkout both derive it.
+ */
+function SpecialToggle({ checked, onChange, disabled, compact }: {
+  checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; compact?: boolean
+}) {
+  return (
+    <label style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7, cursor: disabled ? 'not-allowed' : 'pointer',
+      background: checked ? 'linear-gradient(135deg,#FFE9A8,#F5C560)' : '#fff',
+      border: `1px solid ${checked ? '#E0AC3A' : BORDER}`,
+      color: checked ? '#6B4800' : ACCENT,
+      borderRadius: 8, padding: compact ? '5px 8px' : '8px 12px',
+      fontSize: compact ? 11 : 13, fontWeight: 700, whiteSpace: 'nowrap',
+    }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ margin: 0, cursor: disabled ? 'not-allowed' : 'pointer' }}
+      />
+      {checked ? '★ Special €6' : 'Special €6'}
+    </label>
+  )
+}
+
 // ─── Inventory tab ─────────────────────────────────────────────────────────
 function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: {
   charms: Charm[]; categories: string[]; onSave: (c: Charm) => void; onDelete: (id: string, name: string) => void; busy: boolean; isMobile: boolean
 }) {
   const [draft, setDraft] = useState<Record<string, Charm>>({})
-  const [nw, setNw] = useState({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' })
+  const [nw, setNw] = useState({ name: '', category: '', quantity: '100', imageUrl: '', special: false })
+  const blankNw = { name: '', category: '', quantity: '100', imageUrl: '', special: false }
 
   const edit = (c: Charm, patch: Partial<Charm>) =>
     setDraft((d) => ({ ...d, [c.id]: { ...c, ...d[c.id], ...patch } }))
@@ -475,17 +505,8 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
           <select value={nw.category || cats[0]} onChange={(e) => setNw({ ...nw, category: e.target.value })} style={fieldW(120)}>
             {cats.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          {isMobile ? (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="number" step="0.50" min="0" placeholder="Price €" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={{ ...inpFull, flex: 1 }} />
-              <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={{ ...inpFull, flex: 1 }} />
-            </div>
-          ) : (
-            <>
-              <input type="number" step="0.50" min="0" placeholder="Price" value={nw.price} onChange={(e) => setNw({ ...nw, price: e.target.value })} style={inp(80)} />
-              <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={inp(70)} />
-            </>
-          )}
+          <input type="number" step="1" min="0" placeholder="Qty" value={nw.quantity} onChange={(e) => setNw({ ...nw, quantity: e.target.value })} style={isMobile ? inpFull : inp(70)} />
+          <SpecialToggle checked={nw.special} disabled={busy} onChange={(special) => setNw({ ...nw, special })} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#fff', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {nw.imageUrl
@@ -509,7 +530,7 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
             )}
           </div>
           <button disabled={busy || !nw.name.trim()}
-            onClick={() => { onSave({ id: `${slug(nw.name)}${Math.random().toString(36).slice(2, 5)}`, name: nw.name.trim(), category: nw.category || cats[0], price: Number(nw.price) || 0, quantity: parseInt(nw.quantity) || 0, imageUrl: nw.imageUrl.trim() }); setNw({ name: '', category: '', price: '3.50', quantity: '100', imageUrl: '' }) }}
+            onClick={() => { onSave({ id: `${slug(nw.name)}${Math.random().toString(36).slice(2, 5)}`, name: nw.name.trim(), category: nw.category || cats[0], quantity: parseInt(nw.quantity) || 0, imageUrl: nw.imageUrl.trim(), special: nw.special }); setNw(blankNw) }}
             style={{ ...btn(!busy && !!nw.name.trim()), ...(isMobile ? { width: '100%', padding: '12px' } : {}) }}>Add</button>
         </div>
       </div>
@@ -524,7 +545,7 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#F5EEF1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {v.imageUrl
-                      ? <img src={v.imageUrl} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={thumbUrl(v.imageUrl)} alt={v.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={{ fontSize: 20, color: '#C9AEB8' }}>🔗</span>}
                   </div>
                   <label style={{ ...btn(!busy), display: 'inline-block', cursor: busy ? 'not-allowed' : 'pointer' }}>
@@ -553,15 +574,12 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
                     {[...new Set([v.category, ...cats])].map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={mlabel}>Price €</label>
-                    <input type="number" step="0.50" min="0" value={v.price} onChange={(e) => edit(c, { price: Number(e.target.value) })} style={inpFull} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={mlabel}>Stock</label>
-                    <input type="number" step="1" min="0" value={v.quantity} onChange={(e) => edit(c, { quantity: parseInt(e.target.value) || 0 })} style={inpFull} />
-                  </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={mlabel}>Stock</label>
+                  <input type="number" step="1" min="0" value={v.quantity} onChange={(e) => edit(c, { quantity: parseInt(e.target.value) || 0 })} style={inpFull} />
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <SpecialToggle checked={v.special} disabled={busy} onChange={(special) => edit(c, { special })} />
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button disabled={busy} onClick={() => onSave(v)} style={{ ...btn(!busy, true), flex: 1, padding: '12px' }}>Save</button>
@@ -578,7 +596,7 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
           <thead>
             <tr style={{ textAlign: 'left', color: ACCENT }}>
-              <Th>Image</Th><Th>Name</Th><Th>Category</Th><Th>Price €</Th><Th>Stock</Th><Th></Th>
+              <Th>Image</Th><Th>Name</Th><Th>Category</Th><Th>Stock</Th><Th>Special €6</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -590,7 +608,7 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: '#F5EEF1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         {v.imageUrl
-                          ? <img src={v.imageUrl} alt={v.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={thumbUrl(v.imageUrl)} alt={v.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           : <span style={{ fontSize: 16, color: '#C9AEB8' }}>🔗</span>}
                       </div>
                       <label style={{ ...btn(!busy), padding: '6px 8px', fontSize: 11, display: 'inline-block', cursor: busy ? 'not-allowed' : 'pointer' }}>
@@ -616,8 +634,8 @@ function InventoryTab({ charms, categories, onSave, onDelete, busy, isMobile }: 
                       {[...new Set([v.category, ...cats])].map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                   </td>
-                  <td style={td}><input type="number" step="0.50" min="0" value={v.price} onChange={(e) => edit(c, { price: Number(e.target.value) })} style={inp(75)} /></td>
                   <td style={td}><input type="number" step="1" min="0" value={v.quantity} onChange={(e) => edit(c, { quantity: parseInt(e.target.value) || 0 })} style={inp(65)} /></td>
+                  <td style={td}><SpecialToggle checked={v.special} disabled={busy} onChange={(special) => edit(c, { special })} compact /></td>
                   <td style={{ ...td, whiteSpace: 'nowrap' }}>
                     <button disabled={busy} onClick={() => onSave(v)} style={btn(!busy, true)}>Save</button>
                     <button disabled={busy} onClick={() => onDelete(c.id, c.name)} style={{ ...btn(!busy), background: '#fff', color: '#C0392B', border: '1px solid #E8B4B4', marginLeft: 6 }}>Del</button>
@@ -1076,7 +1094,7 @@ function BraceletStrip({ metal, layout }: { metal: string; layout: (OrderFace | 
               {f && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   {f.imageUrl
-                    ? <img src={f.imageUrl} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+                    ? <img src={thumbUrl(f.imageUrl)} alt={f.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
                     : face
                       ? <><span style={{ position: 'absolute', inset: 4, background: face.bg, borderRadius: 2 }} /><span style={{ position: 'relative', fontSize: 15, lineHeight: 1 }}>{face.emoji}</span></>
                       : <span style={{ fontSize: 8, color: INK, textAlign: 'center', lineHeight: 1, padding: 1 }}>{f.name.slice(0, 4)}</span>}
@@ -1103,7 +1121,7 @@ function CharmItems({ items, fallback }: { items?: OrderItem[]; fallback: string
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 64 }}>
           <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#F5EEF1', border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {it.imageUrl
-              ? <img src={it.imageUrl} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={thumbUrl(it.imageUrl)} alt={it.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <span style={{ fontSize: 11, color: ACCENT, textAlign: 'center', padding: 2, lineHeight: 1.1 }}>{it.name}</span>}
             {it.qty > 1 && (
               <span style={{ position: 'absolute', top: -6, right: -6, background: MAROON, color: '#fff', borderRadius: 20, minWidth: 18, height: 18, padding: '0 5px', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,.25)' }}>×{it.qty}</span>

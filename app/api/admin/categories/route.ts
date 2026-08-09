@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
   try {
-    return NextResponse.json({ categories: await getCategories() })
+    return NextResponse.json({ categories: await getCategories({ fresh: true }) })
   } catch (err) {
     console.error('[/api/admin/categories] read error:', err)
     return NextResponse.json({ error: 'Could not read categories.' }, { status: 502 })

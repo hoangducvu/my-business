@@ -8,5 +8,8 @@ const DEFAULTS = [...CATEGORIES]
 export async function GET() {
   await ensureCategoriesSheet(DEFAULTS)
   const cats = await getCategories()
-  return NextResponse.json({ categories: cats.length > 0 ? cats : DEFAULTS, defaults: DEFAULTS })
+  return NextResponse.json(
+    { categories: cats.length > 0 ? cats : DEFAULTS, defaults: DEFAULTS },
+    { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' } },
+  )
 }
