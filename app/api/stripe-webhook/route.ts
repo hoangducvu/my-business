@@ -1,6 +1,6 @@
-import { google } from 'googleapis'
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { sheetsClient, once } from '@/lib/google-sheets'
 import { createBookingCalendarEvent } from '@/lib/google-calendar'
 import { updateInventoryQty } from '@/lib/sheets-inventory'
 import { markBookingPaid } from '@/lib/sheets-bookings'
@@ -10,15 +10,6 @@ import { appendDeduction } from '@/lib/sheets-phonecase-log'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-04-22.dahlia',
 })
-
-function getSheetsClient() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  })
-  return google.sheets({ version: 'v4', auth })
-}
 
 export async function POST(request: Request) {
   const sig     = request.headers.get('stripe-signature') ?? ''
@@ -41,7 +32,7 @@ export async function POST(request: Request) {
   const meta    = (session.metadata ?? {}) as Record<string, string>
   const paid_at = new Date().toISOString()
 
-  if (meta.product_type === 'italian_charm_bracelet') {
+  if (meta.product_type === 'italian_charm_bracelet' || meta.product_type === 'italian_charms_singles') {
     return handleCharmOrder(session, meta, paid_at)
   }
 
@@ -62,7 +53,9 @@ async function handleCharmOrder(
 ) {
   const customerEmail = session.customer_email ?? session.customer_details?.email ?? ''
   const metal         = meta.metal ?? 'silver'
-  const numLinks      = parseInt(meta.num_links ?? '18', 10)
+  // Singles orders have no bracelet, so num_links comes through empty.
+  const parsedLinks   = parseInt(meta.num_links ?? '', 10)
+  const numLinks: number | string = Number.isNaN(parsedLinks) ? 'singles' : parsedLinks
   const charms        = meta.charms ?? ''
   const charmQty      = meta.charm_qty ?? ''   // id:qty list — used to show charm images in admin
   const layout        = meta.layout ?? ''      // ordered per-link charm ids for the assembly view
@@ -70,7 +63,7 @@ async function handleCharmOrder(
 
   try {
     await ensureCharmOrdersSheet()
-    const sheets = getSheetsClient()
+    const sheets = sheetsClient()
     await sheets.spreadsheets.values.append({
       spreadsheetId:    process.env.GOOGLE_SPREADSHEET_ID!,
       range:            'CharmOrders!A:I',
@@ -146,25 +139,27 @@ async function handleBookingPayment(
   return NextResponse.json({ received: true, booking_id, paid_at })
 }
 
-async function ensureCharmOrdersSheet() {
-  const sheets        = getSheetsClient()
-  const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID!
-  const meta          = await sheets.spreadsheets.get({ spreadsheetId })
-  const exists        = meta.data.sheets?.some((s) => s.properties?.title === 'CharmOrders')
+function ensureCharmOrdersSheet() {
+  return once('CharmOrders', async () => {
+    const sheets        = sheetsClient()
+    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID!
+    const meta          = await sheets.spreadsheets.get({ spreadsheetId })
+    const exists        = meta.data.sheets?.some((s) => s.properties?.title === 'CharmOrders')
 
-  if (!exists) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests: [{ addSheet: { properties: { title: 'CharmOrders' } } }] },
-    })
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range:            'CharmOrders!A1:I1',
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [['stripe_session_id', 'customer_email', 'metal', 'num_links', 'charms', 'total_cents', 'paid_at', 'charm_qty', 'layout']],
-      },
-    })
-    console.log('[stripe-webhook] Created CharmOrders sheet')
-  }
+    if (!exists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: 'CharmOrders' } } }] },
+      })
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range:            'CharmOrders!A1:I1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [['stripe_session_id', 'customer_email', 'metal', 'num_links', 'charms', 'total_cents', 'paid_at', 'charm_qty', 'layout']],
+        },
+      })
+      console.log('[stripe-webhook] Created CharmOrders sheet')
+    }
+  })
 }

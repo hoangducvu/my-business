@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { sheetsClient, spreadsheetId, once, cachedRead, invalidate } from '@/lib/google-sheets'
 
 // ─── Bookings store (Google Sheets) ──────────────────────────────────────────
 // Replaces the old "Leads" tab. Every reservation — walk-in or paid — lands here
@@ -11,18 +11,8 @@ import { google } from 'googleapis'
 const SHEET = 'Bookings'
 const HEADER = ['id', 'name', 'email', 'phone', 'activity', 'submittedAt', 'date', 'time', 'partySize', 'location', 'status', 'details']
 
-function spreadsheetId() {
-  return process.env.GOOGLE_SPREADSHEET_ID!
-}
-
-function getSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  })
-  return google.sheets({ version: 'v4', auth })
-}
+const CACHE_KEY = 'bookings'
+const CACHE_TTL = 30_000
 
 export interface Booking {
   id:          string
@@ -39,29 +29,32 @@ export interface Booking {
   details:     string
 }
 
-export async function ensureBookingsSheet(): Promise<void> {
-  const sheets = getSheets()
-  const id     = spreadsheetId()
-  const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
-  if (exists) return
+/** Runs once per process — the sheet only needs creating on a fresh spreadsheet. */
+export function ensureBookingsSheet(): Promise<void> {
+  return once(SHEET, async () => {
+    const sheets = sheetsClient()
+    const id     = spreadsheetId()
+    const meta   = await sheets.spreadsheets.get({ spreadsheetId: id })
+    const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET)
+    if (exists) return
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: id,
-    requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: id,
+      requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
+    })
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: id,
+      range: `${SHEET}!A1:L1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HEADER] },
+    })
+    console.log('[sheets-bookings] Created Bookings sheet with headers')
   })
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: id,
-    range: `${SHEET}!A1:L1`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [HEADER] },
-  })
-  console.log('[sheets-bookings] Created Bookings sheet with headers')
 }
 
 export async function appendBooking(b: Booking): Promise<void> {
   await ensureBookingsSheet()
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   await sheets.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
     range: `${SHEET}!A:L`,
@@ -70,14 +63,16 @@ export async function appendBooking(b: Booking): Promise<void> {
       values: [[b.id, b.name, b.email, b.phone, b.activity, b.submittedAt, b.date, b.time, b.partySize, b.location, b.status, b.details]],
     },
   })
+  invalidate(CACHE_KEY)
 }
 
 // Read all bookings. Returns [] if the sheet doesn't exist yet or the read
 // fails, so availability degrades gracefully rather than erroring out.
-export async function getBookings(): Promise<Booking[]> {
-  const sheets = getSheets()
-  try {
-    const res = await sheets.spreadsheets.values.get({
+// `fresh` skips the 30s cache — /admin passes it so the owner always sees the
+// booking that just came in.
+export async function getBookings(opts: { fresh?: boolean } = {}): Promise<Booking[]> {
+  const load = async (): Promise<Booking[]> => {
+    const res = await sheetsClient().spreadsheets.values.get({
       spreadsheetId: spreadsheetId(),
       range: `${SHEET}!A2:L`,
     })
@@ -97,6 +92,13 @@ export async function getBookings(): Promise<Booking[]> {
         status:      r[10]?.toString() ?? '',
         details:     r[11]?.toString() ?? '',
       }))
+  }
+  try {
+    if (opts.fresh) {
+      invalidate(CACHE_KEY)
+      return await load()
+    }
+    return await cachedRead(CACHE_KEY, CACHE_TTL, load)
   } catch (err) {
     console.error('[sheets-bookings] getBookings read error:', err)
     return []
@@ -112,7 +114,7 @@ export async function markBookingPaid(id: string): Promise<void> {
 // booking row was found and updated. Used by the admin "customer came / done"
 // tick (status 'done') as well as markBookingPaid.
 export async function setBookingStatus(id: string, status: string): Promise<boolean> {
-  const sheets = getSheets()
+  const sheets = sheetsClient()
   const ss     = spreadsheetId()
   const res    = await sheets.spreadsheets.values.get({
     spreadsheetId: ss,
@@ -131,5 +133,6 @@ export async function setBookingStatus(id: string, status: string): Promise<bool
     valueInputOption: 'RAW',
     requestBody: { values: [[status]] },
   })
+  invalidate(CACHE_KEY)
   return true
 }

@@ -1,13 +1,53 @@
 import { google } from 'googleapis'
 import { getActivityLabel, getLocationLabel } from '@/lib/labels'
 
-function getCalendarClient() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/calendar'],
+const SCOPES = ['https://www.googleapis.com/auth/calendar']
+
+/**
+ * True once the shop's own Google account is wired up.
+ *
+ * A service account cannot invite attendees — Google rejects it with "Service
+ * accounts cannot invite attendees without Domain-Wide Delegation of Authority"
+ * — so bookings land on the shop calendar but the customer never receives an
+ * invitation. Acting as a real account fixes that, which is why this path
+ * exists. See scripts/setup-calendar-oauth.mjs for the one-time setup.
+ */
+export function usingRealAccount(): boolean {
+  return Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID &&
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+    process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+  )
+}
+
+function buildAuth() {
+  if (usingRealAccount()) {
+    // The refresh token is long-lived; the library swaps it for an access token
+    // on demand and caches that for the hour it is valid.
+    const oauth = new google.auth.OAuth2(
+      process.env.GOOGLE_OAUTH_CLIENT_ID,
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET
+    )
+    oauth.setCredentials({ refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN })
+    return oauth
+  }
+
+  // Fallback until the real account is set up: bookings are still recorded on
+  // the shop calendar, just without a customer invite.
+  return new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!),
+    scopes: SCOPES,
   })
-  return google.calendar({ version: 'v3', auth })
+}
+
+let calendarClient: ReturnType<typeof google.calendar> | undefined
+
+// One client per process so the OAuth token is fetched once, not per booking.
+function getCalendarClient() {
+  if (!calendarClient) {
+    calendarClient = google.calendar({ version: 'v3', auth: buildAuth() })
+  }
+  return calendarClient
 }
 
 // ─── Create a booking event in Google Calendar ───────────────────────────────
@@ -80,9 +120,12 @@ export async function createBookingCalendarEvent(opts: {
       },
     })
   } catch (err) {
-    // Service accounts can't invite attendees without Domain-Wide Delegation.
-    // Fall back to creating the owner's event only, so the booking is never lost.
-    console.warn('[calendar] Attendee invite failed — creating owner-only event. Enable Domain-Wide Delegation to invite customers:', err)
+    // Expected while still on the service account: it cannot invite attendees.
+    // Fall back to the shop's own event so the booking is never lost.
+    const hint = usingRealAccount()
+      ? 'Running as the real account, so this is unexpected — check the token still has calendar scope.'
+      : 'Still on the service account, which cannot invite customers. Run scripts/setup-calendar-oauth.mjs to switch.'
+    console.warn(`[calendar] Attendee invite failed — created shop-only event. ${hint}`, err)
     await calendar.events.insert({
       calendarId:  process.env.GOOGLE_CALENDAR_ID!,
       sendUpdates: 'none',

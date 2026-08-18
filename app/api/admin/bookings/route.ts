@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   try {
-    const bookings = (await getBookings()).reverse().slice(0, 300)
+    const bookings = (await getBookings({ fresh: true })).reverse().slice(0, 300)
     return NextResponse.json({ bookings })
   } catch (err) {
     console.error('[/api/admin/bookings] read error:', err)

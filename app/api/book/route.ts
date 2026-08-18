@@ -63,7 +63,8 @@ export async function POST(request: Request) {
 
   // Race-condition guard: re-check slot availability before writing
   try {
-    const existing = await getBookings()
+    // Must bypass the read cache: a cached list would defeat the guard.
+    const existing = await getBookings({ fresh: true })
     const taken = existing.some((b) => b.date === date && b.time === time && b.location === location)
     if (taken) {
       return NextResponse.json({

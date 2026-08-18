@@ -1,6 +1,8 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { getCharmCatalog } from '@/lib/sheets-inventory'
+import { HIDDEN_CHARM_IDS } from '@/app/charm-builder/charms'
+import { priceForBuild, priceBreakdown, SINGLE_PRICE, SPECIAL_SUPPLEMENT, type BuyMode } from '@/lib/charm-pricing'
 
 /* ─── Stripe client ─────────────────────────────────────────── */
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -11,30 +13,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 interface CharmItem {
   id: string
   name: string
-  price: number   // euros
+  price: number   // euros — advisory only; the server re-prices from the catalog
 }
 
 interface CharmOrderBody {
-  metal: 'silver' | 'gold' | 'bronze'
+  mode: BuyMode
+  tone: 'silver' | 'gold'
   numLinks: number
   charms: CharmItem[]
   layout?: string[]   // one entry per link slot, in order; '' = empty (plain) link
   totalCents: number
 }
 
-/* ─── Metal labels ──────────────────────────────────────────── */
-const METAL_LABEL: Record<string, string> = {
-  silver: 'Silver',
-  gold: 'Gold (+€6.00)',
-  bronze: 'Bronze (+€3.00)',
-}
+const TONE_LABEL: Record<string, string> = { silver: 'Silver', gold: 'Gold' }
 
-const BASE_PRICES: Record<number, number> = {
-  16: 10.00, 17: 10.50, 18: 11.00, 19: 11.50, 20: 12.00,
-}
-const METAL_SURCHARGE: Record<string, number> = {
-  silver: 0, gold: 6.00, bronze: 3.00,
-}
+const VALID_LINKS = [16, 17, 18, 19, 20]
 
 /* ─── POST /api/charm-checkout ──────────────────────────────── */
 export async function POST(request: Request) {
@@ -45,13 +38,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Invalid request body.' }, { status: 400 })
   }
 
-  const { metal, numLinks, charms } = body
+  const { numLinks, charms } = body
+  const mode: BuyMode = body.mode === 'singles' ? 'singles' : 'bracelet'
+  const tone = body.tone === 'gold' ? 'gold' : 'silver'
 
   // Basic validation
-  if (!metal || !numLinks || !Array.isArray(charms)) {
+  if (!Array.isArray(charms)) {
     return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 })
   }
-  if (!BASE_PRICES[numLinks]) {
+  if (mode === 'bracelet' && !VALID_LINKS.includes(numLinks)) {
     return NextResponse.json({ message: 'Invalid bracelet size.' }, { status: 400 })
   }
   if (charms.length === 0) {
@@ -63,68 +58,68 @@ export async function POST(request: Request) {
   // Build Stripe line items
   const lineItems: NonNullable<NonNullable<Parameters<typeof stripe.checkout.sessions.create>[0]>['line_items']> = []
 
-  // 1. Bracelet base (frame + links)
-  const basePriceCents = Math.round(BASE_PRICES[numLinks] * 100)
-  lineItems.push({
-    price_data: {
-      currency: 'eur',
-      unit_amount: basePriceCents,
-      product_data: {
-        name: `OddlyCraft Italian Charm Bracelet — ${numLinks} links (${METAL_LABEL[metal]})`,
-        description: `${numLinks}-link ${metal} bracelet frame with clasp`,
-        images: [],
-      },
-    },
-    quantity: 1,
-  })
-
-  // 2. Metal surcharge (if any)
-  const surcharge = METAL_SURCHARGE[metal]
-  if (surcharge > 0) {
-    lineItems.push({
-      price_data: {
-        currency: 'eur',
-        unit_amount: Math.round(surcharge * 100),
-        product_data: {
-          name: `${METAL_LABEL[metal]} finish upgrade`,
-        },
-      },
-      quantity: 1,
-    })
-  }
-
-  // 3. Individual charms — resolve authoritative prices from the catalog so the
-  //    client cannot tamper with per-charm prices sent in the request body.
-  let priceById: Record<string, { price: number; name: string; imageUrl: string }>
+  // Resolve charms against the catalog so the client can't invent ids. Prices
+  // come from the pricing tiers, not from the catalog row or the request body.
+  let known: Record<string, { price: number; name: string; imageUrl: string; special: boolean }>
   try {
-    const catalog = await getCharmCatalog()
-    priceById = Object.fromEntries(catalog.map((c) => [c.id, { price: c.price, name: c.name, imageUrl: c.imageUrl }]))
+    // Hidden charms are dropped here too, so a stale client cache can't order
+    // something the shop has pulled from sale.
+    const catalog = (await getCharmCatalog()).filter((c) => !HIDDEN_CHARM_IDS.has(c.id))
+    known = Object.fromEntries(catalog.map((c) => [c.id, { price: c.price, name: c.name, imageUrl: c.imageUrl, special: c.special }]))
   } catch (err) {
     console.error('[/api/charm-checkout] catalog lookup failed:', err)
     return NextResponse.json({ message: 'Could not verify charm prices. Please try again.' }, { status: 502 })
   }
+  const priceById = known
 
-  const grouped: Record<string, { name: string; price: number; qty: number; imageUrl: string }> = {}
+  const grouped: Record<string, { name: string; price: number; qty: number; imageUrl: string; special: boolean }> = {}
   for (const charm of charms) {
     const known = priceById[charm.id]
     if (!known) {
       return NextResponse.json({ message: `Unknown charm: ${charm.id}` }, { status: 400 })
     }
     if (grouped[charm.id]) grouped[charm.id].qty++
-    else grouped[charm.id] = { name: known.name, price: known.price, qty: 1, imageUrl: known.imageUrl }
+    else grouped[charm.id] = { name: known.name, price: known.price, qty: 1, imageUrl: known.imageUrl, special: known.special }
   }
 
-  for (const { name, price, qty, imageUrl } of Object.values(grouped)) {
-    // Stripe only accepts publicly-fetchable image URLs; skip uploaded data-URLs
-    // so the picture shows on Checkout/receipt without ever breaking the session.
-    const images = imageUrl.startsWith('http') ? [imageUrl] : []
+  // Authoritative total from the shared pricing rules. Which charms are special
+  // is read from the catalog, never from the request, so the client can't
+  // downgrade a €6 charm by lying about it.
+  const charmCount = charms.length
+  const specialCount = charms.reduce((n, c) => n + (priceById[c.id].special ? 1 : 0), 0)
+  const build = { count: charmCount, specialCount, numLinks, mode }
+  const authTotalCents = Math.round(priceForBuild(build) * 100)
+
+  if (mode === 'singles') {
+    // Loose charms: flat rate each, one line per design so the receipt is itemised.
+    for (const { name, qty, imageUrl, special } of Object.values(grouped)) {
+      const images = imageUrl.startsWith('http') ? [imageUrl] : []
+      lineItems.push({
+        price_data: {
+          currency: 'eur',
+          unit_amount: Math.round((SINGLE_PRICE + (special ? SPECIAL_SUPPLEMENT : 0)) * 100),
+          product_data: { name: `Italian Charm — ${name}${special ? ' (special)' : ''}`, images },
+        },
+        quantity: qty,
+      })
+    }
+  } else {
+    // Bracelet build: the tier price covers the frame and every charm, so it has
+    // to go over as a single line item or the totals wouldn't add up.
+    const names = Object.values(grouped)
+      .map(({ name, qty }) => `${name}${qty > 1 ? ` ×${qty}` : ''}`)
+      .join(', ')
     lineItems.push({
       price_data: {
         currency: 'eur',
-        unit_amount: Math.round(price * 100),
-        product_data: { name: `Italian Charm — ${name}`, images },
+        unit_amount: authTotalCents,
+        product_data: {
+          name: `OddlyCraft Charm Bracelet — ${charmCount} charms, ${numLinks} links (${TONE_LABEL[tone]})`,
+          description: `${priceBreakdown(build)}. Charms: ${names}`.slice(0, 500),
+          images: [],
+        },
       },
-      quantity: qty,
+      quantity: 1,
     })
   }
 
@@ -144,12 +139,6 @@ export async function POST(request: Request) {
     .join('|')
   const layoutMeta = layoutStr.replace(/\|+$/, '').length && layoutStr.length <= 500 ? layoutStr : ''
 
-  // Authoritative total (base + metal surcharge + catalog-priced charms)
-  const authTotalCents =
-    basePriceCents +
-    (surcharge > 0 ? Math.round(surcharge * 100) : 0) +
-    Object.values(grouped).reduce((sum, g) => sum + Math.round(g.price * 100) * g.qty, 0)
-
   // Create Stripe Checkout Session
   let session: Stripe.Checkout.Session
   try {
@@ -158,9 +147,10 @@ export async function POST(request: Request) {
       payment_method_types: ['card'],
       line_items: lineItems,
       metadata: {
-        product_type: 'italian_charm_bracelet',
-        metal,
-        num_links: String(numLinks),
+        product_type: mode === 'singles' ? 'italian_charms_singles' : 'italian_charm_bracelet',
+        buy_mode: mode,
+        metal: tone,
+        num_links: mode === 'singles' ? '' : String(numLinks),
         charms: charmSummary.slice(0, 500), // Stripe metadata max 500 chars per key
         charm_qty: charmQtyMeta.slice(0, 500), // id:qty list — used by the webhook to decrement stock
         layout: layoutMeta, // ordered per-link charm ids ('' = plain link) for the owner's assembly view

@@ -33,13 +33,21 @@ function parseLayout(raw: string, catalog: Catalog): (OrderFace | null)[] {
   })
 }
 
+let readonlyClient: ReturnType<typeof google.sheets> | undefined
+
+// Kept separate from lib/google-sheets so this route stays on the read-only
+// scope. Memoised so repeat visits reuse the OAuth token instead of fetching a
+// new one before every read.
 function getSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  })
-  return google.sheets({ version: 'v4', auth })
+  if (!readonlyClient) {
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!)
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    })
+    readonlyClient = google.sheets({ version: 'v4', auth })
+  }
+  return readonlyClient
 }
 
 // GET /api/admin/orders — recent charm-bracelet orders (newest first)

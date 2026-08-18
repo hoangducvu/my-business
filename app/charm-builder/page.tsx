@@ -1,22 +1,32 @@
 'use client'
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
 import SiteNav from '../SiteNav'
-import { Charm, DEFAULT_CHARMS, CATEGORIES } from './charms'
+import { Charm, CHARMS, CATEGORIES, thumbUrl, type Tone } from './charms'
+import {
+  priceForBuild, priceBreakdown, nextCombo, fullBraceletPrice,
+  SINGLE_PRICE, SPECIAL_PRICE, SPECIAL_SUPPLEMENT, CHARM_PRICE, PLAIN_LINK_PRICE,
+  COMBOS, STANDARD_LINKS, LINK_STEP, type BuyMode,
+} from '@/lib/charm-pricing'
 
-type Metal = 'silver' | 'gold' | 'bronze'
+const ALL_CHARMS: Charm[] = CHARMS
 
-const BASE_PRICES: Record<number, number> = { 16: 10, 17: 10.5, 18: 11, 19: 11.5, 20: 12 }
-// Must match METAL_SURCHARGE in /api/charm-checkout/route.ts
-const METAL_FEE: Record<Metal, number> = { silver: 0, gold: 6, bronze: 3 }
+/** What the customer is buying: a finished bracelet in a finish, or loose charms. */
+type Mode = 'silver' | 'gold' | 'singles'
 
-const MS: Record<Metal, { bg: string; shine: string; ib: string; lb: string; clasp: string; sb: string; btn: string; label: string; badge: string; tc: string }> = {
-  silver: { bg: 'linear-gradient(145deg,#F6F6F6 0%,#E0E0E0 40%,#C8C8C8 70%,#B8B8B8 100%)', shine: 'linear-gradient(180deg,rgba(255,255,255,0.55) 0%,rgba(255,255,255,0) 55%)', ib: 'rgba(255,255,255,0.4)', lb: '#A8A8A8', clasp: 'linear-gradient(180deg,#F4F4F4 0%,#A8A8A8 100%)', sb: '#B8B8B8', btn: 'linear-gradient(135deg,#f5f5f5,#c0c0c0)', label: 'Silver', badge: 'Standard', tc: '#555' },
-  gold:   { bg: 'linear-gradient(145deg,#FFF9D8 0%,#FFE566 40%,#D4A020 70%,#B8880A 100%)', shine: 'linear-gradient(180deg,rgba(255,255,220,0.6) 0%,rgba(255,255,255,0) 55%)', ib: 'rgba(255,255,180,0.5)', lb: '#C08010', clasp: 'linear-gradient(180deg,#FFFCE0 0%,#C08010 100%)', sb: '#C8900A', btn: 'linear-gradient(135deg,#fffacc,#ffd700)', label: 'Gold', badge: '+€6.00', tc: '#6B4800' },
-  bronze: { bg: 'linear-gradient(145deg,#F5E0B8 0%,#D09050 40%,#9C5228 70%,#7A3A18 100%)', shine: 'linear-gradient(180deg,rgba(255,230,180,0.5) 0%,rgba(255,255,255,0) 55%)', ib: 'rgba(255,210,150,0.4)', lb: '#8B4513', clasp: 'linear-gradient(180deg,#F5DEB3 0%,#8B4513 100%)', sb: '#A0522D', btn: 'linear-gradient(135deg,#f5deb3,#cd7f32)', label: 'Bronze', badge: '+€3.00', tc: '#5A2800' },
+const SINGLES_SLOTS = 20   // tray size when buying loose charms
+
+const MS: Record<Tone, { sb: string; btn: string; label: string; badge: string; tc: string }> = {
+  silver: { sb: '#B8B8B8', btn: 'linear-gradient(135deg,#f5f5f5,#c0c0c0)', label: 'Silver', badge: 'Bracelet', tc: '#555' },
+  gold:   { sb: '#C8900A', btn: 'linear-gradient(135deg,#fffacc,#ffd700)', label: 'Gold',   badge: 'Bracelet', tc: '#6B4800' },
 }
 
-function LinkImg({ metal }: { metal: Metal }) {
+const MODE_BTN: Record<Mode, { btn: string; label: string; badge: string; tc: string }> = {
+  silver:  { ...MS.silver, btn: MS.silver.btn },
+  gold:    { ...MS.gold,   btn: MS.gold.btn },
+  singles: { btn: 'linear-gradient(135deg,#FFF0F4,#F4D0DA)', label: 'Buy Singles', badge: `€${SINGLE_PRICE.toFixed(2)} each`, tc: '#7B1A38' },
+}
+
+function LinkImg({ metal }: { metal: Tone }) {
   return (
     <img
       src={`/${metal}.png`}
@@ -38,9 +48,10 @@ function CharmFace({ charm, size = 18 }: { charm: Charm; size?: number }) {
   if (charm.imageUrl) {
     return (
       <img
-        src={charm.imageUrl}
+        src={thumbUrl(charm.imageUrl)}
         alt={charm.name}
         draggable={false}
+        decoding="async"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, pointerEvents: 'none' }}
       />
     )
@@ -56,15 +67,110 @@ function CharmFace({ charm, size = 18 }: { charm: Charm; size?: number }) {
   )
 }
 
+/**
+ * The price list, up top where customers meet it before they start building.
+ * The tile matching what they've placed so far lights up, so the combo they're
+ * heading for is obvious without reading the small print.
+ */
+function ComboBanner({ count, numLinks, isSingles, isMobile }: {
+  count: number; numLinks: number; isSingles: boolean; isMobile: boolean
+}) {
+  const R = 'var(--maroon,#7B1A38)'
+
+  if (isSingles) {
+    return (
+      <div style={{ background: '#fff', borderRadius: 18, padding: isMobile ? '14px 14px 16px' : '18px 20px 20px', boxShadow: '0 2px 14px rgba(123,26,56,0.08)' }}>
+        <h3 style={{ margin: '0 0 4px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>Loose charms</h3>
+        <p style={{ margin: 0, fontSize: isMobile ? 12 : 13, color: '#8A7680', lineHeight: 1.6 }}>
+          €{SINGLE_PRICE.toFixed(2)} per charm, no bracelet included.
+          Charms marked <SpecialTag /> are €{(SINGLE_PRICE + SPECIAL_SUPPLEMENT).toFixed(2)}.
+        </p>
+      </div>
+    )
+  }
+
+  const tiles = [
+    { at: 6,  price: COMBOS[6],  label: '6 charms' },
+    { at: 9,  price: COMBOS[9],  label: '9 charms' },
+    { at: numLinks, price: fullBraceletPrice(numLinks), label: `Full ${numLinks}` },
+  ]
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 18, padding: isMobile ? '14px 14px 16px' : '18px 20px 20px', boxShadow: '0 2px 14px rgba(123,26,56,0.08)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>
+          Combo deals
+        </h3>
+        <span style={{ fontSize: isMobile ? 10 : 11, color: '#B8A2AC', fontWeight: 600 }}>Bracelet included</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: isMobile ? 7 : 10 }}>
+        {tiles.map(({ at, price, label }) => {
+          const active = count === at
+          return (
+            <div
+              key={label}
+              style={{
+                borderRadius: 14, padding: isMobile ? '10px 4px 9px' : '14px 6px 12px', textAlign: 'center',
+                background: active ? 'linear-gradient(160deg,#FFF3F7,#FDE0EA)' : '#FBF7F9',
+                border: active ? `2.5px solid ${R}` : '2px solid #F2E6EC',
+                transition: 'all 0.15s',
+                transform: active ? 'scale(1.03)' : 'scale(1)',
+              }}
+            >
+              <div style={{ fontFamily: 'var(--font-baloo,sans-serif)', fontSize: isMobile ? 20 : 26, fontWeight: 800, color: R, lineHeight: 1 }}>
+                €{price.toFixed(0)}
+              </div>
+              <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 700, color: active ? R : '#9B8A92', marginTop: 5 }}>{label}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      <ul style={{ margin: '12px 0 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <li style={{ fontSize: isMobile ? 11 : 12, color: '#8A7680', lineHeight: 1.5 }}>
+          <strong style={{ color: '#6B5A62' }}>Under 6 charms:</strong> €{CHARM_PRICE.toFixed(2)} a charm
+          + €{PLAIN_LINK_PRICE.toFixed(2)} for each plain link.
+        </li>
+        <li style={{ fontSize: isMobile ? 11 : 12, color: '#8A7680', lineHeight: 1.5 }}>
+          <strong style={{ color: '#6B5A62' }}>Between combos:</strong> the combo below,
+          plus €{CHARM_PRICE.toFixed(2)} per extra charm.
+        </li>
+        <li style={{ fontSize: isMobile ? 11 : 12, color: '#8A7680', lineHeight: 1.5 }}>
+          <strong style={{ color: '#6B5A62' }}>Wrist size:</strong> a full bracelet is €{COMBOS[STANDARD_LINKS]} at {STANDARD_LINKS} links —
+          €{LINK_STEP} less per link down, €{LINK_STEP} more per link up.
+        </li>
+        <li style={{ fontSize: isMobile ? 11 : 12, color: '#8A7680', lineHeight: 1.5 }}>
+          <SpecialTag /> charms add €{SPECIAL_SUPPLEMENT.toFixed(2)} each (€{SPECIAL_PRICE.toFixed(2)} on their own).
+        </li>
+      </ul>
+    </div>
+  )
+}
+
+/** The little badge that marks a €6 charm, reused in the palette and basket. */
+function SpecialTag() {
+  return (
+    <span style={{
+      display: 'inline-block', background: 'linear-gradient(135deg,#FFE9A8,#F5C560)',
+      color: '#6B4800', borderRadius: 5, padding: '1px 5px', fontSize: 9.5,
+      fontWeight: 800, letterSpacing: '0.03em', verticalAlign: 'middle',
+    }}>
+      ★ SPECIAL
+    </span>
+  )
+}
+
 /* --- Main Page --- */
 function CharmBuilderInner() {
-  const searchParams        = useSearchParams()
-
-  const [charms, setCharms]         = useState<Charm[]>(DEFAULT_CHARMS)
-  const [metal, setMetal]           = useState<Metal>('silver')
+  const [charms, setCharms]         = useState<Charm[]>(ALL_CHARMS)
+  const [mode, setMode]             = useState<Mode>('silver')
   const [numLinks, setNumLinks]     = useState(18)
   const [slots, setSlots]           = useState<(Charm | null)[]>(Array(18).fill(null))
   const [activeCategory, setActiveCategory] = useState('Nature')
+  // Which tone the palette is showing. Independent of the bracelet finish —
+  // customers mix tones, so this must not follow the frame colour.
+  const [paletteTone, setPaletteTone]       = useState<Tone>('silver')
   const [dragState, setDragState]   = useState<{ charm: Charm; fromSlot: number | null } | null>(null)
   const [dragOver, setDragOver]     = useState<number | null>(null)
   const [loading, setLoading]       = useState(false)
@@ -79,6 +185,10 @@ function CharmBuilderInner() {
 
   const [inventory, setInventory]       = useState<Record<string, number>>({})
   const [allCatsState, setAllCatsState] = useState<string[]>([...CATEGORIES])
+
+  const isSingles  = mode === 'singles'
+  const tone: Tone = mode === 'gold' ? 'gold' : 'silver'
+  const buyMode: BuyMode = isSingles ? 'singles' : 'bracelet'
 
   const fetchCatalog = async () => {
     try {
@@ -190,11 +300,14 @@ function CharmBuilderInner() {
     try { const s = localStorage.getItem('oc-charms'); if (s) setCharms(JSON.parse(s)) } catch {}
   }, [])
 
+  // Read the Stripe return status straight off the URL. Using useSearchParams()
+  // here would force the whole page behind a Suspense/CSR bailout, which leaves
+  // customers staring at a loading placeholder before the builder appears.
   useEffect(() => {
-    const p = searchParams?.get('payment')
+    const p = new URLSearchParams(window.location.search).get('payment')
     if (p === 'success') setPayStatus('success')
     else if (p === 'cancelled') setPayStatus('cancelled')
-  }, [searchParams])
+  }, [])
 
 
   const resizeBracelet = (n: number) => {
@@ -206,17 +319,37 @@ function CharmBuilderInner() {
     })
   }
 
-  const tapToAdd = (charm: Charm) => {
-    if (!isMobile) return
-    if (available(charm.id) <= 0) return
-    const target = slots.findIndex(s => s === null)
-    if (target === -1) return
+  // Switching finish only resizes the tray. Charms are kept whatever their tone —
+  // the finish picks the colour of the links, and plenty of customers want a
+  // gold charm on a silver bracelet.
+  const changeMode = (next: Mode) => {
+    setMode(next)
+    const size = next === 'singles' ? SINGLES_SLOTS : numLinks
     setSlots(prev => {
+      const out: (Charm | null)[] = Array(size).fill(null)
+      const kept = prev.filter((c): c is Charm => !!c)
+      for (let i = 0; i < Math.min(kept.length, size); i++) out[i] = kept[i]
+      return out
+    })
+  }
+
+  /** Drop a charm into the first free slot. Used by tap-to-add and the singles tray. */
+  const addToFirstFree = (charm: Charm) => {
+    if (available(charm.id) <= 0) return
+    setSlots(prev => {
+      const target = prev.findIndex(s => s === null)
+      if (target === -1) return prev
       const n = [...prev]
       n[target] = charm
       return n
     })
-    setMobileTab('builder')
+  }
+
+  const tapToAdd = (charm: Charm) => {
+    // Singles has no fixed slots to drag onto, so clicking adds on desktop too.
+    if (!isMobile && !isSingles) return
+    addToFirstFree(charm)
+    if (isMobile) setMobileTab('builder')
   }
 
   const onDragStartPalette = (charm: Charm) => {
@@ -254,11 +387,12 @@ function CharmBuilderInner() {
     setSlots(Array(numLinks).fill(null))
   }
 
-  const placed     = slots.filter(Boolean) as Charm[]
-  const charmTotal = placed.reduce((s, c) => s + c.price, 0)
-  const basePrice  = BASE_PRICES[numLinks]
-  const metalFee   = METAL_FEE[metal]
-  const total      = basePrice + charmTotal + metalFee
+  const placed       = slots.filter(Boolean) as Charm[]
+  const specialCount = placed.reduce((n, c) => n + (c.special ? 1 : 0), 0)
+  const build        = { count: placed.length, specialCount, numLinks, mode: buyMode }
+  const total        = priceForBuild(build)
+  const breakdown    = priceBreakdown(build)
+  const upsell       = isSingles ? null : nextCombo(placed.length, numLinks)
   const hasCharms  = placed.length > 0
   const grouped    = Object.values(placed.reduce<Record<string, { charm: Charm; qty: number }>>((acc, c) => {
     acc[c.id] = acc[c.id] ? { ...acc[c.id], qty: acc[c.id].qty + 1 } : { charm: c, qty: 1 }
@@ -268,17 +402,28 @@ function CharmBuilderInner() {
   const checkout = async () => {
     setLoading(true); setError('')
     try {
-      const res  = await fetch('/api/charm-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ metal, numLinks, charms: placed.map(c => ({ id: c.id, name: c.name, price: c.price })), layout: slots.map(c => c ? c.id : ''), totalCents: Math.round(total * 100) }) })
+      const res  = await fetch('/api/charm-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: buyMode, tone, numLinks, charms: placed.map(c => ({ id: c.id, name: c.name, price: c.price })), layout: isSingles ? [] : slots.map(c => c ? c.id : ''), totalCents: Math.round(total * 100) }) })
       const data = await res.json()
       if (data.url) window.location.href = data.url; else setError(data.message || 'Checkout failed.')
     } catch { setError('Network error.') }
     finally { setLoading(false) }
   }
 
-  const s             = MS[metal]
+  const s             = MS[tone]
   const R             = 'var(--maroon,#7B1A38)'
   const allCategories = allCatsState
+  // Every charm in the category is offered whatever the bracelet finish. The
+  // palette's own Silver/Gold buttons decide which set is on show, so a mixed
+  // build is two taps rather than a long scroll.
   const visibleCharms = charms.filter(c => c.category === activeCategory)
+  const charmsByTone: { tone: Tone; label: string; list: Charm[] }[] = [
+    { tone: 'silver', label: 'Silver', list: visibleCharms.filter(c => (c.tone ?? 'silver') === 'silver') },
+    { tone: 'gold',   label: 'Gold',   list: visibleCharms.filter(c => (c.tone ?? 'silver') === 'gold') },
+  ]
+  const paletteCharms = charmsByTone.find(g => g.tone === paletteTone)?.list ?? []
+  // On desktop the links flex to fill the row so a full bracelet always fits
+  // without sideways scrolling; on mobile they keep a fixed tappable size.
+  const linkMax = 52
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background,#FFF0F4)', fontFamily: 'var(--font-nunito,sans-serif)' }}>
@@ -332,7 +477,7 @@ function CharmBuilderInner() {
         maxWidth: 1360, margin: '0 auto',
         padding: isMobile ? '12px 10px 100px' : '20px 16px 60px',
         display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,260px) minmax(0,1fr) minmax(0,290px)',
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,300px) minmax(0,1fr) minmax(0,290px)',
         gap: 18, alignItems: 'start',
       }}>
 
@@ -353,8 +498,33 @@ function CharmBuilderInner() {
           >
             {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
           </select>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(4,1fr)' : 'repeat(3,1fr)', gap: 6, maxHeight: isMobile ? 'calc(100vh - 220px)' : 460, overflowY: 'auto', paddingRight: 2 }}>
-            {visibleCharms.map(charm => {
+          {/* Silver and gold are two taps apart rather than one long scroll. This
+              is only which charms are on show — either tone goes on either bracelet. */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {charmsByTone.map(({ tone: groupTone, label, list }) => {
+              const on = paletteTone === groupTone
+              return (
+                <button
+                  key={groupTone}
+                  onClick={() => setPaletteTone(groupTone)}
+                  style={{
+                    flex: 1, padding: '8px 4px', borderRadius: 11, cursor: 'pointer',
+                    border: on ? `2.5px solid ${R}` : '2px solid #EDE0E6',
+                    background: on ? MS[groupTone].btn : '#FBF7F9',
+                    color: on ? MS[groupTone].tc : '#B09AA4',
+                    fontWeight: 800, fontSize: 12, lineHeight: 1.3,
+                    transition: 'all 0.14s', transform: on ? 'scale(1.03)' : 'scale(1)',
+                  }}
+                >
+                  <div>{label}</div>
+                  <div style={{ fontSize: 9.5, fontWeight: 600, opacity: 0.7 }}>{list.length} charms</div>
+                </button>
+              )
+            })}
+          </div>
+          {/* scrollbarGutter keeps the columns from being clipped once the scrollbar appears */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(4,minmax(0,1fr))' : 'repeat(2,minmax(0,1fr))', gap: isMobile ? 6 : 8, maxHeight: isMobile ? 'calc(100vh - 260px)' : 560, overflowY: 'auto', overflowX: 'hidden', scrollbarGutter: 'stable' }}>
+            {paletteCharms.map(charm => {
               const qty        = available(charm.id)
               const outOfStock = qty <= 0
               return (
@@ -391,52 +561,73 @@ function CharmBuilderInner() {
                   }}
                 >
                   {charm.imageUrl
-                    ? <img src={charm.imageUrl} alt={charm.name} style={{ width: '100%', height: isMobile ? 28 : 34, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                    ? <img src={thumbUrl(charm.imageUrl)} alt={charm.name} loading="lazy" decoding="async" style={{ width: '100%', height: isMobile ? 28 : 62, objectFit: 'contain', borderRadius: 4, display: 'block' }} />
                     : <div style={{ fontSize: activeCategory === 'Letters' ? (isMobile ? 13 : 16) : (isMobile ? 17 : 20), lineHeight: 1 }}>{charm.emoji}</div>
                   }
-                  <div style={{ fontSize: isMobile ? 8 : 9, fontWeight: 700, color: R, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{charm.name}</div>
-                  <div style={{ fontSize: isMobile ? 8 : 9, color: '#aaa', marginTop: 1 }}>{outOfStock ? 'Out of stock' : charm.price.toFixed(2)}</div>
+                  <div style={{ fontSize: isMobile ? 8 : 10, fontWeight: 700, color: R, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 2px' }}>{charm.name}</div>
+                  <div style={{ fontSize: isMobile ? 8 : 9, color: charm.special ? '#B07800' : '#aaa', marginTop: 1, fontWeight: charm.special ? 800 : 400 }}>
+                    {outOfStock
+                      ? 'Out of stock'
+                      : charm.special
+                        ? `★ €${(isSingles ? SINGLE_PRICE + SPECIAL_SUPPLEMENT : SPECIAL_PRICE).toFixed(2)}`
+                        : isSingles ? `€${SINGLE_PRICE.toFixed(2)}` : ''}
+                  </div>
                 </div>
               )
             })}
-            {visibleCharms.length === 0 && <p style={{ gridColumn: '1/-1', textAlign: 'center', color: '#ddd', fontSize: 12, padding: '20px 0' }}>No charms here</p>}
+            {paletteCharms.length === 0 && (
+              <p style={{ gridColumn: '1/-1', textAlign: 'center', color: '#ccc', fontSize: 12, padding: '20px 0', lineHeight: 1.6 }}>
+                No {paletteTone} charms in {activeCategory}
+                <br />
+                <span style={{ fontSize: 11 }}>Try the {paletteTone === 'silver' ? 'Gold' : 'Silver'} button</span>
+              </p>
+            )}
           </div>
-          {!isMobile && <p style={{ fontSize: 10, color: '#ccc', margin: '10px 0 0', textAlign: 'center', lineHeight: 1.5 }}>Drag onto bracelet</p>}
+          {!isMobile && <p style={{ fontSize: 10, color: '#ccc', margin: '10px 0 0', textAlign: 'center', lineHeight: 1.5 }}>Drag onto bracelet — mix silver and gold freely</p>}
         </div>
 
         <div style={{ display: isMobile && mobileTab !== 'builder' ? 'none' : 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
+          <ComboBanner count={placed.length} numLinks={numLinks} isSingles={isSingles} isMobile={isMobile} />
+
           <div style={{ background: '#fff', borderRadius: 18, padding: '18px 20px', boxShadow: '0 2px 14px rgba(123,26,56,0.08)', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 16 : 20 }}>
             <div>
-              <h3 style={{ margin: '0 0 10px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 13, fontWeight: 700 }}>Metal Finish</h3>
+              <h3 style={{ margin: '0 0 10px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 13, fontWeight: 700 }}>What are you buying?</h3>
               <div style={{ display: 'flex', gap: 7 }}>
-                {(['silver', 'gold', 'bronze'] as Metal[]).map(m => (
-                  <button key={m} onClick={() => setMetal(m)} style={{ flex: 1, padding: '9px 4px', borderRadius: 12, border: metal === m ? `3px solid ${R}` : '2px solid #E8E8E8', cursor: 'pointer', background: MS[m].btn, fontWeight: 800, fontSize: 12, color: MS[m].tc, transition: 'border-color 0.15s', transform: metal === m ? 'scale(1.04)' : 'scale(1)' }}>
-                    <div>{MS[m].label}</div>
-                    <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2, opacity: 0.75 }}>{MS[m].badge}</div>
+                {(['silver', 'gold', 'singles'] as Mode[]).map(m => (
+                  <button key={m} onClick={() => changeMode(m)} style={{ flex: 1, padding: '9px 4px', borderRadius: 12, border: mode === m ? `3px solid ${R}` : '2px solid #E8E8E8', cursor: 'pointer', background: MODE_BTN[m].btn, fontWeight: 800, fontSize: 12, color: MODE_BTN[m].tc, transition: 'border-color 0.15s', transform: mode === m ? 'scale(1.04)' : 'scale(1)' }}>
+                    <div>{MODE_BTN[m].label}</div>
+                    <div style={{ fontSize: 10, fontWeight: 500, marginTop: 2, opacity: 0.75 }}>{MODE_BTN[m].badge}</div>
                   </button>
                 ))}
               </div>
+              <p style={{ fontSize: 10, color: '#ccc', margin: '6px 0 0', lineHeight: 1.6 }}>
+                {isSingles
+                  ? 'Loose charms only — no bracelet included.'
+                  : <>Sets the colour of the links only — silver and gold charms both fit.<br />Hit 6 charms and the bracelet comes free with the combo.</>}
+              </p>
             </div>
-            <div>
-              <h3 style={{ margin: '0 0 10px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 13, fontWeight: 700 }}>Bracelet Size</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5 }}>
-                {[16, 17, 18, 19, 20].map(n => (
-                  <button key={n} onClick={() => resizeBracelet(n)} style={{ padding: '7px 2px', borderRadius: 10, border: numLinks === n ? `3px solid ${R}` : '2px solid #E8E8E8', cursor: 'pointer', background: numLinks === n ? '#FDE8EF' : '#fff', fontWeight: 800, fontSize: 13, color: R, transition: 'all 0.12s', transform: numLinks === n ? 'scale(1.05)' : 'scale(1)' }}>
-                    <div>{n}</div>
-                    <div style={{ fontSize: 8, fontWeight: 500, color: '#AAA' }}>{n <= 17 ? 'Sm' : n === 18 ? 'Med' : 'Lg'}</div>
-                  </button>
-                ))}
+            {!isSingles && (
+              <div>
+                <h3 style={{ margin: '0 0 10px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 13, fontWeight: 700 }}>Bracelet Size</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5 }}>
+                  {[16, 17, 18, 19, 20].map(n => (
+                    <button key={n} onClick={() => resizeBracelet(n)} style={{ padding: '7px 2px', borderRadius: 10, border: numLinks === n ? `3px solid ${R}` : '2px solid #E8E8E8', cursor: 'pointer', background: numLinks === n ? '#FDE8EF' : '#fff', fontWeight: 800, fontSize: 13, color: R, transition: 'all 0.12s', transform: numLinks === n ? 'scale(1.05)' : 'scale(1)' }}>
+                      <div>{n}</div>
+                      <div style={{ fontSize: 8, fontWeight: 500, color: '#AAA' }}>{n <= 17 ? 'Sm' : n === 18 ? 'Med' : 'Lg'}</div>
+                    </button>
+                  ))}
+                </div>
+                <p style={{ fontSize: 10, color: '#ccc', margin: '5px 0 0' }}>S: 16-17 links / M: 18 / L: 19-20</p>
               </div>
-              <p style={{ fontSize: 10, color: '#ccc', margin: '5px 0 0' }}>S: 16-17 links / M: 18 / L: 19-20</p>
-            </div>
+            )}
           </div>
 
           <div style={{ background: '#fff', borderRadius: 18, padding: isMobile ? '16px 12px 20px' : '20px 18px 24px', boxShadow: '0 2px 14px rgba(123,26,56,0.08)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-              <h2 style={{ margin: 0, fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 15, fontWeight: 700 }}>Your Bracelet</h2>
+              <h2 style={{ margin: 0, fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 15, fontWeight: 700 }}>{isSingles ? 'Your Charms' : 'Your Bracelet'}</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, color: '#bbb' }}>{placed.length}/{numLinks} charms</span>
+                <span style={{ fontSize: 12, color: '#bbb' }}>{isSingles ? `${placed.length} selected` : `${placed.length}/${numLinks} charms`}</span>
                 <button
                   onClick={clearAll}
                   style={{ fontSize: 11, color: '#aaa', background: 'none', border: '1px solid #E8E8E8', borderRadius: 8, padding: '4px 10px', cursor: 'pointer' }}
@@ -448,75 +639,102 @@ function CharmBuilderInner() {
               </div>
             </div>
 
-            <div ref={braceletRef} style={{ overflowX: 'auto', paddingBottom: 28, paddingTop: 4 }}>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center',
-                background: 'linear-gradient(180deg,#F6F2F4 0%,#EDE6EA 100%)',
-                borderRadius: 14, overflow: 'hidden',
-                padding: '14px 0',
-                border: `2px solid ${s.sb}`,
-                gap: 0, minWidth: 'max-content',
-                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.06)',
+            <div ref={braceletRef} style={{ overflowX: isMobile ? 'auto' : 'visible', paddingBottom: 28, paddingTop: 4, display: 'flex', justifyContent: isMobile ? 'flex-start' : 'center' }}>
+              <div
+                onDragOver={isSingles ? (e => e.preventDefault()) : undefined}
+                onDrop={isSingles ? (() => { if (dragState?.charm) addToFirstFree(dragState.charm); onDragEnd() }) : undefined}
+                style={{
+                display: 'flex',
+                flexWrap: isSingles ? 'wrap' : 'nowrap',
+                justifyContent: isSingles ? 'flex-start' : 'center',
+                alignItems: 'center',
+                background: isSingles ? 'transparent' : 'linear-gradient(180deg,#F6F2F4 0%,#EDE6EA 100%)',
+                borderRadius: 14, overflow: isSingles ? 'visible' : 'hidden',
+                padding: isSingles ? 0 : '14px 0',
+                border: isSingles ? 'none' : `2px solid ${s.sb}`,
+                gap: isSingles ? 10 : 0,
+                minWidth: !isSingles && isMobile ? 'max-content' : undefined,
+                width: isSingles || !isMobile ? '100%' : undefined,
+                minHeight: isSingles ? 80 : undefined,
+                boxShadow: isSingles ? 'none' : 'inset 0 2px 6px rgba(0,0,0,0.06)',
               }}>
-                {slots.map((charm, i) => (
-                  <div
-                    key={i}
-                    draggable={!!charm && !isMobile}
-                    onDragStart={charm && !isMobile ? () => onDragStartSlot(charm, i) : undefined}
-                    onDragEnd={onDragEnd}
-                    onDragOver={e => onDragOver(e, i)}
-                    onDrop={() => onDrop(i)}
-                    onDragLeave={() => setDragOver(null)}
-                    data-slot={i}
-                    onClick={undefined}
-                    style={{
-                      width: isMobile ? 44 : 52, height: isMobile ? 44 : 52,
-                      flexShrink: 0,
-                      position: 'relative',
-                      userSelect: 'none',
-                      touchAction: isMobile ? (charm ? 'none' : 'pan-x') : 'auto',
-                      cursor: charm ? (isMobile ? 'pointer' : 'grab') : 'default',
-                      transition: 'transform 0.1s',
-                      transform: dragOver === i ? 'scale(1.08)' : 'scale(1)',
-                      zIndex: dragOver === i ? 4 : 1,
-                      outline: dragOver === i ? `2.5px solid ${R}` : 'none',
-                      outlineOffset: '0px',
-                    }}
-                  >
-                    <LinkImg metal={metal} />
+                {slots.map((charm, i) => {
+                  // In singles mode the tray is just the chosen charms — no empty links.
+                  if (isSingles && !charm) return null
+                  const fixed = isSingles ? (isMobile ? 52 : 62) : isMobile ? 44 : null
+                  return (
+                    <div
+                      key={i}
+                      draggable={!!charm && !isMobile}
+                      onDragStart={charm && !isMobile ? () => onDragStartSlot(charm, i) : undefined}
+                      onDragEnd={onDragEnd}
+                      onDragOver={e => onDragOver(e, i)}
+                      onDrop={() => onDrop(i)}
+                      onDragLeave={() => setDragOver(null)}
+                      data-slot={i}
+                      onClick={undefined}
+                      style={{
+                        // Desktop bracelet links share the row evenly so any bracelet
+                        // size fits; everything else keeps a fixed square.
+                        ...(fixed
+                          ? { width: fixed, height: fixed, flexShrink: 0 }
+                          : { flex: '1 1 0', minWidth: 0, maxWidth: linkMax, aspectRatio: '1 / 1' }),
+                        position: 'relative',
+                        userSelect: 'none',
+                        touchAction: isMobile ? (charm ? 'none' : 'pan-x') : 'auto',
+                        cursor: charm ? (isMobile ? 'pointer' : 'grab') : 'default',
+                        transition: 'transform 0.1s',
+                        transform: dragOver === i ? 'scale(1.08)' : 'scale(1)',
+                        zIndex: dragOver === i ? 4 : 1,
+                        outline: dragOver === i ? `2.5px solid ${R}` : 'none',
+                        outlineOffset: '0px',
+                        ...(isSingles ? { background: '#F7F2F5', borderRadius: 10, border: '1.5px solid #EEDFE6' } : null),
+                      }}
+                    >
+                      {!isSingles && <LinkImg metal={tone} />}
 
-                    {charm && (
-                      <>
-                        <div style={{
-                          position: 'absolute', inset: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          overflow: 'hidden',
-                        }}>
-                          <CharmFace charm={charm} size={charm.category === 'Letters' ? (isMobile ? 12 : 14) : (isMobile ? 15 : 18)} />
-                        </div>
-                        <button
-                          onClick={() => removeSlot(i)}
-                          style={{ position: 'absolute', top: isMobile ? -8 : -6, right: isMobile ? -8 : -6, width: isMobile ? 24 : 16, height: isMobile ? 24 : 16, borderRadius: '50%', background: R, color: '#fff', border: '2px solid #fff', cursor: 'pointer', fontSize: isMobile ? 11 : 7, fontWeight: 900, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.28)', lineHeight: 1 }}
-                        >x</button>
-                      </>
-                    )}
+                      {charm && (
+                        <>
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            overflow: 'hidden',
+                          }}>
+                            <CharmFace charm={charm} size={charm.category === 'Letters' ? (isMobile ? 12 : 14) : (isMobile ? 15 : 18)} />
+                          </div>
+                          <button
+                            onClick={() => removeSlot(i)}
+                            style={{ position: 'absolute', top: isMobile ? -8 : -6, right: isMobile ? -8 : -6, width: isMobile ? 24 : 16, height: isMobile ? 24 : 16, borderRadius: '50%', background: R, color: '#fff', border: '2px solid #fff', cursor: 'pointer', fontSize: isMobile ? 11 : 7, fontWeight: 900, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.28)', lineHeight: 1 }}
+                          >x</button>
+                        </>
+                      )}
 
-                    <span style={{ position: 'absolute', bottom: -17, left: '50%', transform: 'translateX(-50%)', fontSize: 8, color: '#CCC', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-                      {i + 1}
-                    </span>
-                  </div>
-                ))}
+                      {!isSingles && (
+                        <span style={{ position: 'absolute', bottom: -17, left: '50%', transform: 'translateX(-50%)', fontSize: 8, color: '#CCC', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
+                          {i + 1}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+                {isSingles && placed.length === 0 && (
+                  <p style={{ color: '#DDD', fontSize: 13, padding: '28px 0', margin: 0, width: '100%', textAlign: 'center' }}>
+                    {isMobile ? 'Tap charms to add them' : 'Drag charms here to add them'}
+                  </p>
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginTop: 4, fontSize: 11, color: '#AAA' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 20, height: 20, position: 'relative', flexShrink: 0, display: 'inline-block' }}>
-                  <img src={`/${metal}.png`} alt="plain link" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
+              {!isSingles && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 20, height: 20, position: 'relative', flexShrink: 0, display: 'inline-block' }}>
+                    <img src={`/${tone}.png`} alt="plain link" style={{ width: '100%', height: '100%', objectFit: 'fill' }} />
+                  </span>
+                  Plain link
                 </span>
-                Plain link
-              </span>
-              <span>{isMobile ? 'Tap x to remove' : 'Drag to reorder'}</span>
+              )}
+              <span>{isMobile ? 'Tap x to remove' : isSingles ? 'Click a charm to add it' : 'Drag to reorder'}</span>
             </div>
           </div>
         </div>
@@ -529,10 +747,19 @@ function CharmBuilderInner() {
         }}>
           <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 16, fontWeight: 700 }}>Your Basket</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555' }}>
-              <span>Bracelet frame ({numLinks} links)</span>
-              <span style={{ fontWeight: 700 }}>{basePrice.toFixed(2)}</span>
-            </div>
+            {isSingles ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555' }}>
+                <span>Loose charms</span>
+                <span style={{ fontWeight: 700 }}>€{SINGLE_PRICE.toFixed(2)} each</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555' }}>
+                <span>Bracelet frame ({numLinks} links, {MS[tone].label})</span>
+                <span style={{ fontWeight: 700, color: placed.length >= 6 ? '#2A7B5C' : '#9B8A92' }}>
+                  {placed.length >= 6 ? 'Free' : `€${PLAIN_LINK_PRICE.toFixed(2)}/plain link`}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ borderTop: '1px solid #F4EAF0', marginTop: 12, paddingTop: 12 }}>
             {grouped.length === 0 ? (
@@ -546,20 +773,25 @@ function CharmBuilderInner() {
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#C0B0B8', marginBottom: 8, letterSpacing: '0.06em' }}>CHARMS ({placed.length})</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
                   {grouped.map(({ charm, qty }) => {
-                    const lineTotal = charm.price * qty
+                    // Bracelet builds are priced by the tier, so per-charm money
+                    // would be misleading — only singles show a line total.
+                    const lineTotal = (SINGLE_PRICE + (charm.special ? SPECIAL_SUPPLEMENT : 0)) * qty
                     return (
                       <div key={charm.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                           {charm.imageUrl
-                            ? <img src={charm.imageUrl} alt={charm.name} style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
+                            ? <img src={thumbUrl(charm.imageUrl)} alt={charm.name} loading="lazy" decoding="async" style={{ width: 20, height: 20, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />
                             : <span style={{ fontSize: 17 }}>{charm.emoji}</span>
                           }
                           <span style={{ color: '#555' }}>
                             {charm.name}
                             {qty > 1 && <span style={{ color: '#bbb', fontSize: 11 }}> x{qty}</span>}
+                            {charm.special && <span style={{ marginLeft: 5 }}><SpecialTag /></span>}
                           </span>
                         </span>
-                        <span style={{ fontWeight: 700, color: R }}>{lineTotal.toFixed(2)}</span>
+                        <span style={{ fontWeight: 700, color: isSingles ? R : '#CCC' }}>
+                          {isSingles ? lineTotal.toFixed(2) : `×${qty}`}
+                        </span>
                       </div>
                     )
                   })}
@@ -572,7 +804,15 @@ function CharmBuilderInner() {
               <span style={{ fontFamily: 'var(--font-baloo,sans-serif)', fontSize: 17, fontWeight: 800, color: R }}>Total</span>
               <span style={{ fontFamily: 'var(--font-baloo,sans-serif)', fontSize: 22, fontWeight: 800, color: R }}>{total.toFixed(2)}</span>
             </div>
-            <p style={{ fontSize: 10, color: '#ccc', margin: '3px 0 0' }}>Incl. VAT, excl. shipping</p>
+            {hasCharms && (
+              <p style={{ fontSize: 11, color: '#9B8A92', margin: '4px 0 0' }}>{breakdown}</p>
+            )}
+            {upsell && (
+              <p style={{ fontSize: 11, color: '#2A7B5C', margin: '6px 0 0', fontWeight: 700 }}>
+                Add {upsell.at - placed.length} more to {upsell.at === numLinks ? 'fill the bracelet' : `hit the ${upsell.at}-charm combo`} — €{upsell.price.toFixed(2)} all in
+              </p>
+            )}
+            <p style={{ fontSize: 10, color: '#ccc', margin: '6px 0 0' }}>Incl. VAT, excl. shipping</p>
           </div>
           {error && (
             <div style={{ background: '#FFF0F0', border: '1px solid #FFBBBB', borderRadius: 10, padding: '8px 12px', fontSize: 12, color: '#CC0000', marginTop: 12 }}>
@@ -638,9 +878,5 @@ function CharmBuilderInner() {
 }
 
 export default function CharmBuilderPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--maroon,#7B1A38)' }}>Loading charm builder...</div>}>
-      <CharmBuilderInner />
-    </Suspense>
-  )
+  return <CharmBuilderInner />
 }
