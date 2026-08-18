@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface AvailabilityDate {
   id:         string
@@ -85,21 +85,40 @@ const activities = [
 
 type FormStatus = 'idle' | 'loading' | 'success' | 'error' | 'redirecting'
 
-export default function BookingSection() {
+/**
+ * Everything here is optional and arrives from the /book query string, so all
+ * three are validated before use — an unknown activity or a date that isn't
+ * actually bookable is ignored rather than half-selected.
+ */
+type Props = {
+  initialActivity?: string
+  initialDate?:     string
+  initialLocation?: string
+}
 
-  const [selectedLocation, setSelectedLocation] = useState<LocationKey | null>(null)
+export default function BookingSection({ initialActivity, initialDate, initialLocation }: Props) {
+
+  const knownActivity = activities.some((a) => a.id === initialActivity) ? initialActivity! : null
+  const knownLocation = initialLocation === 'plaza' || initialLocation === 'mercury' ? initialLocation : null
+
+  const [selectedLocation, setSelectedLocation] = useState<LocationKey | null>(knownLocation)
   const [dates,            setDates]            = useState<AvailabilityDate[]>([])
   const [availLoading,     setAvailLoading]     = useState(false)
   const [availError,       setAvailError]       = useState(false)
   const [selectedDate,     setSelectedDate]     = useState<string | null>(null)
   const [selectedTime,     setSelectedTime]     = useState<string | null>(null)
-  const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
+  const [selectedActivity, setSelectedActivity] = useState<string | null>(knownActivity)
   const [partySize,        setPartySize]        = useState(1)
   const [showForm,         setShowForm]         = useState(false)
   const [formStatus,       setFormStatus]       = useState<FormStatus>('idle')
   const [formMessage,      setFormMessage]      = useState('')
   const [phoneModels,      setPhoneModels]      = useState<{ brand: string; model: string; stock: number }[]>([])
   const [phoneKey,         setPhoneKey]         = useState('')   // "brand||model"
+
+  // A date from the query string can't be applied until availability comes
+  // back — it's only worth selecting if it's genuinely bookable. Held in a ref
+  // and cleared on first use, so changing location later doesn't resurrect it.
+  const pendingDate = useRef(initialDate)
 
   // Fetch availability when location changes
   useEffect(() => {
@@ -116,7 +135,13 @@ export default function BookingSection() {
 
     fetch(`/api/availability?location=${selectedLocation}`)
       .then((r) => r.json())
-      .then((data) => { if (data.dates) setDates(data.dates); else setAvailError(true) })
+      .then((data) => {
+        if (!data.dates) { setAvailError(true); return }
+        setDates(data.dates)
+        const wanted = pendingDate.current
+        pendingDate.current = undefined
+        if (wanted && data.dates.some((d: AvailabilityDate) => d.id === wanted)) setSelectedDate(wanted)
+      })
       .catch(() => setAvailError(true))
       .finally(() => setAvailLoading(false))
   }, [selectedLocation])

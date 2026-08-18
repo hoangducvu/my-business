@@ -1,0 +1,105 @@
+{
+  "welcome": [
+    {
+      "file": "welcome-0.png",
+      "w": 81,
+      "h": 79
+    },
+    {
+      "file": "welcome-1.png",
+      "w": 77,
+      "h": 76
+    },
+    {
+      "file": "welcome-2.png",
+      "w": 77,
+      "h": 77
+    },
+    {
+      "file": "welcome-3.png",
+      "w": 76,
+      "h": 75
+    },
+    {
+      "file": "welcome-4.png",
+      "w": 75,
+      "h": 73
+    },
+    {
+      "file": "welcome-5.png",
+      "w": 75,
+      "h": 70
+    },
+    {
+      "file": "welcome-6.png",
+      "w": 79,
+      "h": 72
+    }
+  ],
+  "to": [
+    {
+      "file": "to-0.png",
+      "w": 77,
+      "h": 74
+    },
+    {
+      "file": "to-1.png",
+      "w": 66,
+      "h": 76
+    }
+  ],
+  "custom": [
+    {
+      "file": "custom-0.png",
+      "w": 76,
+      "h": 74
+    },
+    {
+      "file": "custom-1.png",
+      "w": 73,
+      "h": 72
+    },
+    {
+      "file": "custom-2.png",
+      "w": 76,
+      "h": 76
+    },
+    {
+      "file": "custom-3.png",
+      "w": 71,
+      "h": 71
+    },
+    {
+      "file": "custom-4.png",
+      "w": 72,
+      "h": 72
+    },
+    {
+      "file": "custom-5.png",
+      "w": 72,
+      "h": 72
+    }
+  ],
+  "club": [
+    {
+      "file": "club-0.png",
+      "w": 73,
+      "h": 71
+    },
+    {
+      "file": "club-1.png",
+      "w": 73,
+      "h": 74
+    },
+    {
+      "file": "club-2.png",
+      "w": 72,
+      "h": 70
+    },
+    {
+      "file": "club-3.png",
+      "w": 78,
+      "h": 80
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import SiteNav from '../SiteNav'
 import { Charm, DEFAULT_CHARMS, CATEGORIES } from './charms'
 
 type Metal = 'silver' | 'gold' | 'bronze'
@@ -283,15 +283,12 @@ function CharmBuilderInner() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background,#FFF0F4)', fontFamily: 'var(--font-nunito,sans-serif)' }}>
 
-      <nav style={{ background: R, color: '#fff', padding: '0 20px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 200, boxShadow: '0 2px 10px rgba(0,0,0,0.18)' }}>
-        <Link href="/" style={{ color: '#fff', textDecoration: 'none', fontFamily: 'var(--font-baloo,sans-serif)', fontSize: 16, fontWeight: 700 }}>
-          {isMobile ? '←' : '← OddlyCraft'}
-        </Link>
-        <span style={{ fontFamily: 'var(--font-baloo,sans-serif)', fontSize: isMobile ? 14 : 16, fontWeight: 700 }}>
-          {isMobile ? 'Charm Builder' : 'Italian Charm Builder'}
-        </span>
-        <span style={{ width: isMobile ? 24 : 90 }} />
-      </nav>
+      {/* Same shopfront awning as every other customer-facing page */}
+      <SiteNav />
+
+      <h1 style={{ margin: 0, padding: '18px 20px 0', textAlign: 'center', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: isMobile ? 18 : 22, fontWeight: 800 }}>
+        {isMobile ? 'Charm Builder' : 'Italian Charm Builder'}
+      </h1>
 
       {payStatus === 'success' && (
         <div style={{ background: '#2A7B5C', color: '#fff', textAlign: 'center', padding: '10px 16px', fontSize: 14, fontWeight: 700 }}>
@@ -307,7 +304,7 @@ function CharmBuilderInner() {
       )}
 
       {isMobile && (
-        <div style={{ display: 'flex', background: '#fff', borderBottom: '2px solid #F4D0DA', position: 'sticky', top: 52, zIndex: 100 }}>
+        <div style={{ display: 'flex', background: '#fff', borderBottom: '2px solid #F4D0DA', position: 'sticky', top: 'var(--nav-h)', zIndex: 40 }}>
           {([
             ['palette', '🎨', 'Charms'] as const,
             ['builder', '📿', 'Builder'] as const,
@@ -343,7 +340,7 @@ function CharmBuilderInner() {
           display: isMobile && mobileTab !== 'palette' ? 'none' : undefined,
           background: '#fff', borderRadius: 18, padding: 16,
           boxShadow: '0 2px 14px rgba(123,26,56,0.08)',
-          position: isMobile ? 'static' : 'sticky', top: 68,
+          position: isMobile ? 'static' : 'sticky', top: 'calc(var(--nav-h) + 16px)',
         }}>
           <h2 style={{ margin: '0 0 12px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 14, fontWeight: 700 }}>
             Charm Palette
@@ -528,7 +525,7 @@ function CharmBuilderInner() {
           display: isMobile && mobileTab !== 'basket' ? 'none' : undefined,
           background: '#fff', borderRadius: 18, padding: 20,
           boxShadow: '0 2px 14px rgba(123,26,56,0.08)',
-          position: isMobile ? 'static' : 'sticky', top: 68,
+          position: isMobile ? 'static' : 'sticky', top: 'calc(var(--nav-h) + 16px)',
         }}>
           <h2 style={{ margin: '0 0 16px', fontFamily: 'var(--font-baloo,sans-serif)', color: R, fontSize: 16, fontWeight: 700 }}>Your Basket</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

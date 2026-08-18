@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <!-- Canopy yellows. The pale #feffd7 reads as a highlight through the
+         middle; the deeper #FFEA6D / #F5C842 carry the tips, which is what
+         keeps the shape legible on a white browser tab. -->
+    <linearGradient id="starlight" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFEA6D" />
+      <stop offset="0.42" stop-color="#FEFFD7" />
+      <stop offset="1" stop-color="#F5C842" />
+    </linearGradient>
+  </defs>
+  <g stroke="#E5B02F" stroke-width="0.9" stroke-linejoin="round">
+    <!-- four-pointed sparkle -->
+    <path
+      fill="url(#starlight)"
+      d="M14.6 1.9c.9 6.4 4.5 10 10.9 10.9.7.1.7 1.1 0 1.2-6.4.9-10 4.5-10.9 10.9-.1.7-1.1.7-1.2 0-.9-6.4-4.5-10-10.9-10.9-.7-.1-.7-1.1 0-1.2 6.4-.9 10-4.5 10.9-10.9.1-.7 1.1-.7 1.2 0Z"
+    />
+    <!-- companion glint -->
+    <path
+      fill="url(#starlight)"
+      d="M26.5 19.6c.4 2.8 1.9 4.3 4.7 4.7.3.1.3.6 0 .6-2.8.4-4.3 1.9-4.7 4.7 0 .3-.6.3-.6 0-.4-2.8-1.9-4.3-4.7-4.7-.3 0-.3-.5 0-.6 2.8-.4 4.3-1.9 4.7-4.7.1-.3.6-.3.6 0Z"
+    />
+  </g>
+</svg>

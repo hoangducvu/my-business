@@ -4,9 +4,9 @@ import { useState } from 'react'
 const BLUE = '#005CFF'
 
 const ITEMS: [string, string][] = [
-  ['#book', 'Workshop Ticket'],
+  ['/book', 'Workshop Ticket'],
   ['/charm-builder', 'Italian Charm'],
-  ['#book', 'Gift Card'],
+  ['/book', 'Gift Card'],
   ['#faqs', 'FAQs'],
 ]
 
@@ -50,7 +50,8 @@ export default function MobileNav() {
         <div
           className="fixed left-0 right-0 md:hidden"
           style={{
-            top: 64, zIndex: 50,
+            // Hangs off the bottom of the nav, whatever height it currently is.
+            top: 'var(--nav-h)', zIndex: 50,
             background: '#FEFBE3',
             borderBottom: `2px solid ${BLUE}`,
             boxShadow: '0 8px 24px rgba(0,92,255,0.15)',
@@ -79,22 +80,14 @@ export default function MobileNav() {
                 {label}
               </a>
             ))}
+            {/* Shared .btn shape — blue outline that fills in on hover, same
+                as every other call to action. Its background is transparent, so
+                it picks up the menu panel's cream on its own. */}
             <a
-              href="#book"
+              href="/book"
               onClick={() => setOpen(false)}
-              style={{
-                display: 'block',
-                padding: '13px 16px',
-                borderRadius: 12,
-                color: '#fff',
-                fontWeight: 900,
-                fontSize: 15,
-                textDecoration: 'none',
-                background: BLUE,
-                textAlign: 'center',
-                marginTop: 4,
-                boxShadow: '0 2px 8px rgba(0,92,255,0.3)',
-              }}
+              className="btn"
+              style={{ display: 'block', marginTop: 4, fontSize: 15 }}
             >
               Book a Session
             </a>
